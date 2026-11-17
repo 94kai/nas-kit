@@ -48,5 +48,5 @@ Android APK 构建、FPK 安装、DSH 插件重载等操作分别见 [`dsh-plugi
 
 - 两个上游仓库的提交历史已完整合入本仓库，分别位于 `dsh-plugin/` 和 `fn-aio/` 子目录；单文件回溯历史用 `git log --follow -- <文件>`。
 - 合并前的上游为 `git@github.com:94kai/dsh-plugin.git`（`master`）和 `git@github.com:94kai/fn-aio.git`（`main`）。
-- 本仓库尚未配置新的远端。推送前先新建远端仓库再 `git remote add origin <地址>`，不要把合并后的历史强推到两个旧仓库地址。
+- 远端为 `git@github.com:94kai/nas-kit.git`（`origin`），`main` 已跟踪 `origin/main`；两个旧上游地址只作历史参考，不要强推。
 - 本文件是仓库级导航；修改任一子项目的行为、安全边界或配置结构时，同步更新该项目自己的 README、文档和 `AGENTS.md`。
