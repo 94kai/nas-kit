@@ -66,7 +66,7 @@ node scripts/host-login-script-check.mjs /实际安装路径/.../dsh-client-conn
 以下为人工模板，逐步核对，失败即停。`PKG` 必须是新版实际运行的包目录。
 
 ```bash
-PROJECT='/home/xuekai/project/dsh-plugin'
+PROJECT='/home/xuekai/project/nas-kit/dsh-plugin'
 PKG='/已确认的新安装目录/node_modules/@deepseek-ai/dsh-client-connection'
 TARGET="${PKG:?}/lib/index.js"
 PATCH="${PROJECT:?}/docs/host-token-login.patch"

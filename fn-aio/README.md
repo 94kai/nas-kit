@@ -108,7 +108,7 @@ npm run verify
 mkdir -p .local
 cp gateway.example.json .local/gateway.json
 # 编辑本机入口、所有者 UID 与本机目标 IP，策略不包含密码或令牌。
-npm run build -- /绝对路径/fn-aio/.local/gateway.json
+npm run build -- /绝对路径/nas-kit/fn-aio/.local/gateway.json
 ```
 
 [网关策略示例](<gateway.example.json>)只包含虚构入口。本机策略和构建产物保存在 `.local/`，不进入 Git。生成的 FPK 包含本机入口策略，因此也是本机部署文件，不应作为通用公开安装包传播。

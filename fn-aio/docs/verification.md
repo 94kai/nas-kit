@@ -83,7 +83,7 @@
 - Cookie 使用独立外部入口前缀，隔离飞牛及私有入口凭据；保留业务 Authorization，恢复可信的外部 HTTPS Host/协议，支持短路径 Location、WebSocket、Range 与流式转发。
 - `npm run verify`：JavaScript / Python 语法检查及 **35 项测试通过**。新增覆盖默认不监听、旧配置不公开、回环策略与端口拒绝、严格布尔/持久化/导入默认关闭、逐服务授权/撤销/停用/删除、管理 API 隔离、伪造身份及转发头、Host/Origin/跨站拒绝、歧义路径、Cookie 隔离、重定向、Range、WebSocket、取消回源、已带挂载前缀不重复改写、端口占用启动失败和静态表单安全规则。`git diff --check` 通过。
 - 只读核对当前生产网关策略后，另存一份加入回环 19090 与外部 HTTPS 1025 的[本机构建策略](<../.local/gateway-public-0.2.0.json>)，没有覆盖生产策略或旧构建策略。构建前检查 19090 无监听；该检查不保证未来安装时端口仍可用。
-- `npm run build -- /home/xuekai/project/fn-aio/.local/gateway-public-0.2.0.json` 构建[0.2.0 FPK](<../.local/build-iqXzhH/aio.fpk>) 成功，私人配置与构建产物均被 Git 忽略。安装包包含本机策略，仅供本机使用；生产仍是原安装版本。
+- `npm run build -- /home/xuekai/project/nas-kit/fn-aio/.local/gateway-public-0.2.0.json` 构建[0.2.0 FPK](<../.local/build-iqXzhH/aio.fpk>) 成功，私人配置与构建产物均被 Git 忽略。安装包包含本机策略，仅供本机使用；生产仍是原安装版本。
 - 使用阶段目录中的打包程序及策略、独立临时数据和 Socket 做启动冒烟：管理健康接口版本 0.2.0、业务根路径/未授权服务/管理路径均返回 404；随后关闭两个监听并清理临时测试目录。没有读取或写入真实服务列表。
 - 未经过应用中心安装验收，未运行真实 Lucky 链路、浏览器、Playwright 或 Bitwarden。特别是 Vaultwarden DOMAIN、子路径及各平台客户端仍需用户完成实际接入验证，不宣称已解决全部客户端兼容问题。
 - 配置与使用说明见[业务入口手册](<public-proxy.md>)；Lucky 若不与宿主共享网络，不能用容器自身 localhost 访问本功能的宿主回环监听。
