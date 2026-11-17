@@ -160,7 +160,7 @@ Android 聊天入口用于体重、心情等随手记录，支持文字、图片
 
 ### 当前机器：直接复用已有配置
 
-从仓库根目录执行，**无需再次搜索工具链或从生成代码提取入口**：
+从 `fn-aio/` 根目录执行，**无需再次搜索工具链或从生成代码提取入口**：
 
 ```bash
 # 私人入口与本机工具链配置保存在 .local/android-build.env（不提交 Git）。
@@ -200,7 +200,7 @@ export ANDROID_HOME=/你的/android-sdk
 
 默认输出：`.local/android-build/app/outputs/apk/debug/app-debug.apk`。交付时另存版本命名副本，避免历史下载链接内容随构建变化。v0.3.2 使用与旧版相同 applicationId 与本机调试签名、versionCode 升为 6，可覆盖安装；不要先卸载，以保留 Cookie。正式发布需要长期签名，不能把密钥提交到 Git。
 
-在仓库根目录运行 `JAVA_HOME=/你的/jdk-17 npm run verify`：执行 Java URL/下载策略、双入口隔离、链接分类、返回决策、悬浮球几何、下载记录状态/大小/权限模型、APK 类型识别及回复游标/旧回复过滤共 190 项断言，以及下载脚本的 Node VM 功能测试和 Android 安全/UI 路由源码静态检查。VM 使用 Blob 与模拟 DOM/FileReader，不是启动真实浏览器，也不能替代 Android WebView 真机测试。无 JDK 时 Java 测试明确跳过。APK 编译与 Android Lint 另行运行。
+在 `fn-aio/` 根目录运行 `JAVA_HOME=/你的/jdk-17 npm run verify`：执行 Java URL/下载策略、双入口隔离、链接分类、返回决策、悬浮球几何、下载记录状态/大小/权限模型、APK 类型识别及回复游标/旧回复过滤共 190 项断言，以及下载脚本的 Node VM 功能测试和 Android 安全/UI 路由源码静态检查。VM 使用 Blob 与模拟 DOM/FileReader，不是启动真实浏览器，也不能替代 Android WebView 真机测试。无 JDK 时 Java 测试明确跳过。APK 编译与 Android Lint 另行运行。
 
 macOS 开发机可用 `brew install openjdk@17 android-commandlinetools`，再执行 `sdkmanager --sdk_root=/opt/homebrew/share/android-commandlinetools "platform-tools" "platforms;android-35" "build-tools;35.0.0"`，构建时设置 `JAVA_HOME=/opt/homebrew/opt/openjdk@17`、`ANDROID_HOME=/opt/homebrew/share/android-commandlinetools`。0.7.1 已在该环境完成 `:app:assembleDebug :app:lintDebug`（BUILD SUCCESSFUL），仍属编译/Lint 通过，不是安装或真机验收。
 

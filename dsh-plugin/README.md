@@ -39,20 +39,20 @@ npm test        # 功能测试与合并注册测试；首次先 build
 npm run verify # 完整执行以上步骤
 ```
 
-只安装仓库根目录，不再分别安装功能子目录。通过 DSH `plugin_manager install_bundle` 安装；不要手写 profile 配置。已有三个旧包的迁移与回滚见 [迁移记录](docs/migration.md)。首次本地安装前必须先构建。
+只安装 `dsh-plugin/` 根目录，不再分别安装功能子目录。通过 DSH `plugin_manager install_bundle` 安装；不要手写 profile 配置。已有三个旧包的迁移与回滚见 [迁移记录](docs/migration.md)。首次本地安装前必须先构建。
 
 更新客户端后先运行构建，再按安装结果重新加载并刷新原 GUI；Host 更新若要求重启，应重启既有 DSH 服务。没有验证同一 checkout 的开发 watcher 时，不承诺热更新，也不启动替代服务器。
 
 ## DSH 的 PM2 启动与重启
 
-仓库根目录的 [dsh.sh](dsh.sh) 和 [dsh-rescue.sh](dsh-rescue.sh) 是 **PM2 首次启动脚本**，不是日常重启脚本：
+`dsh-plugin/` 根目录的 [dsh.sh](dsh.sh) 和 [dsh-rescue.sh](dsh-rescue.sh) 是 **PM2 首次启动脚本**，不是日常重启脚本：
 
 | 脚本 | PM2 进程名 | DSH profile | 端口 |
 | --- | --- | --- | --- |
 | [dsh.sh](dsh.sh) | `dsh` | `web` | `2007` |
 | [dsh-rescue.sh](dsh-rescue.sh) | `dsh-rescue` | `rescue` | `2008` |
 
-首次在仓库根目录执行所需脚本，确认启动正常后保存进程列表：
+首次在 `dsh-plugin/` 根目录执行所需脚本，确认启动正常后保存进程列表：
 
 ```sh
 sh ./dsh.sh
