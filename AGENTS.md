@@ -27,6 +27,7 @@
 - 工具箱私有运行数据：`/home/xuekai/project/nas-kit/dsh-plugin/.local/`
 - 进京证凭据配置：`/home/xuekai/project/nas-kit/dsh-plugin/.local/data/beijing-pass/config.json`
 - FN AIO 本机构建策略：`/home/xuekai/project/nas-kit/fn-aio/.local/gateway.json`
+- 兼容软链：`/home/xuekai/project/dsh-plugin/` 与 `/home/xuekai/project/fn-aio/` 指向 `nas-kit/` 下的对应子目录，供 DSH 工作区与 PM2 等旧引用继续使用；不要把软链当独立仓库开发，也不要在未经用户确认时删除。
 
 ## 常用命令
 
