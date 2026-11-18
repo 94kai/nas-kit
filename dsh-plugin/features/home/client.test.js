@@ -11,7 +11,7 @@ function setup(){
  vm.runInNewContext(source,{window:{__ModuleLoader__:{load:value=>{definition=value;}}}});
  return definition.factory(name=>{assert.equal(name,'react');return {createElement:(type,props,...children)=>({type,props,children}),useState:value=>[value,()=>{}],useEffect:()=>{}};});
 }
-test('homepage declares tool slot and always-available launchers, never a top sidebar entry',()=>{
+test('homepage declares tool slot, a header launcher and a blank-session fallback, never a top sidebar entry',()=>{
  const plugin=setup(),registrations=[],disposers=[],nav=[];
  let selected='pocket-kit.home';
  plugin.apply({
@@ -24,22 +24,25 @@ test('homepage declares tool slot and always-available launchers, never a top si
  assert.equal(registrations.some(item=>item.meta.name==='sidebar.footer.action'),false);
  assert.equal(registrations.filter(item=>item.meta.name==='conversation.session.header.utilities').length,1);
  assert.equal(registrations.filter(item=>item.meta.name==='shell.overlay').length,1);
+ const global=registrations.find(item=>item.meta.name==='shell.overlay');
+ assert.equal(global.meta.id,'pocket-kit-home.global');
+ const renderGlobal=props=>{const element=global.component(props);return element.type(element.props);};
+ const nonBlank=renderGlobal({usePanelInfo:select=>select({activePanelId:null}),useSessions:select=>select({byId:{s:{id:'s',blank:false,retainedBy:{mainView:1}}}})});
+ assert.equal(nonBlank,null);
+ const panelOpen=renderGlobal({usePanelInfo:select=>select({activePanelId:'pocket-kit.music'}),useSessions:select=>select({byId:{s:{id:'s',blank:true,retainedBy:{mainView:1}}}})});
+ assert.equal(panelOpen,null);
+ const blank=renderGlobal({usePanelInfo:select=>select({activePanelId:null}),useSessions:select=>select({byId:{s:{id:'s',blank:true,retainedBy:{mainView:1}}}})});
+ assert.equal(blank.props.global,true);
+ assert.equal(blank.type.name,'HeaderLauncher');
  assert.equal(registrations.some(item=>item.meta.name==='sidebar.panellist'),false);
  const main=registrations.find(item=>item.meta.name==='main');
  assert.equal(main.meta.key,'pocket-kit.home');
  assert.equal(main.meta.children['local.pocket-kit.home.tool'].scope,'root');
- const global=registrations.find(item=>item.meta.name==='shell.overlay');
- assert.equal(global.meta.id,'pocket-kit-home.global');
- const renderGlobal=props=>{const element=global.component(props);return element.type(element.props);};
- const hidden=renderGlobal({usePanelInfo:select=>select({activePanelId:null}),useSessions:select=>select({byId:{s:{id:'s',blank:false,retainedBy:{mainView:1}}}})});
- assert.equal(hidden,null);
- const blankSession=renderGlobal({usePanelInfo:select=>select({activePanelId:null}),useSessions:select=>select({byId:{s:{id:'s',blank:true,retainedBy:{mainView:1}}}})});
- assert.equal(blankSession.props.global,true);
- const visible=renderGlobal({usePanelInfo:select=>select({activePanelId:'pocket-kit.music'}),useSessions:select=>select({byId:{}})});
- assert.equal(visible.props.global,true);
- assert.equal(visible.props['aria-label'],undefined);
- assert.equal(visible.type.name,'HeaderLauncher');
- visible.props.open();assert.deepEqual(nav,['pocket-kit.home']);
+ const header=registrations.find(item=>item.meta.name==='conversation.session.header.utilities');
+ assert.equal(header.meta.id,'pocket-kit-home');
+ const element=header.component({});
+ assert.equal(element.type.name,'HeaderLauncher');
+ element.props.open();assert.deepEqual(nav,['pocket-kit.home']);
  nav.length=0;main.component({}).props.chat();assert.deepEqual(nav,[null]);
  nav.length=0;main.component({}).props.open('shortcuts');assert.deepEqual(nav,['shortcuts']);
  nav.length=0;disposers.at(-1)();assert.deepEqual(nav,[null]);
@@ -63,7 +66,6 @@ test('homepage no longer mounts connection status or its automatic probe',()=>{
 });
 test('home keeps mobile, private-link and safe external navigation constraints',()=>{
  assert.match(source,/44px/);assert.match(source,/safe-area-inset-bottom/);
- assert.match(source,/pk-home-global-launcher\{[^}]*top:calc\(var\(--dsh-frame-chrome-top,0px\) \+ 11px\)[^}]*width:36px;padding-left:8px/);
  assert.match(source,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
  assert.match(source,/max-width:360px/);
  assert.match(source,/noopener noreferrer/);
@@ -100,11 +102,10 @@ test('toolbox launcher reopens the last normal page and falls back safely', () =
       },
     },
   });
-  const global = registrations.find(item => item.meta.name === 'shell.overlay');
+  const header = registrations.find(item => item.meta.name === 'conversation.session.header.utilities');
   active = 'pocket-kit.music'; for (const listener of listeners) listener();
   assert.equal(data.get('pocket-kit.last-panel.v1'), 'pocket-kit.music');
-  const launcherElement = global.component({ usePanelInfo: select => select({ activePanelId: active }), useSessions: select => select({ byId: {} }) });
-  const launcher = launcherElement.type(launcherElement.props);
+  const launcher = header.component({});
   nav.length = 0; launcher.props.open(); assert.deepEqual(nav, ['pocket-kit.music']);
   data.set('pocket-kit.last-panel.v1', 'pocket-kit.removed');
   nav.length = 0; launcher.props.open(); assert.deepEqual(nav, ['pocket-kit.home']);

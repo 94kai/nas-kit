@@ -7,69 +7,33 @@ function forcedHomeStartup() {
   } catch { return null; }
 }
 
-// ?toolbox=1 的独立入口只展示工具页面：只保留包含全局面板的中心列，隐藏框架其余区域
-// （侧栏开关、右上角入口、右栏、底部行、浮层）和面板顶部留白；面板关闭后恢复。
-// 不改宿主文件、不读写宿主存储，只在当前 document 上标记元素。
-function mountImmersiveChrome() {
+// ?toolbox=1 的独立入口只展示工具页面：隐藏宿主三栏框架的左右两列，中间列自动占满，
+// 浮层（连接测速等）保持可见。只在面板打开期间生效，关闭后恢复。
+// 面板状态取自 layout 的 panelInfo，只用 CSS 改当前 document，不改宿主文件、不监听 DOM。
+function mountImmersiveChrome(ctx) {
   const noop = () => {};
   if (typeof window === 'undefined' || typeof document === 'undefined') return noop;
   let immersive = false;
   try { immersive = new URL(window.location.href).searchParams.get('toolbox') === '1'; } catch { return noop; }
   if (!immersive) return noop;
-  const key = Symbol.for('pocket-kit.chrome.v1');
-  if (window[key]?.document === document) return noop;
+  const store = ctx?.layout?.panelInfo;
+  if (typeof store?.subscribe !== 'function' || typeof store?.getSnapshot !== 'function') return noop;
   const style = document.createElement('style');
   style.dataset.pocketKitChrome = '';
-  style.textContent = 'html.pk-immersive [data-pk-immersive]{display:none!important}html.pk-immersive [data-pk-frame]{grid-template-columns:0 minmax(0,1fr) 0!important}html.pk-immersive [data-global-panel]{padding-top:0!important}';
+  // sidebarCol / rightbarCol 是宿主框架的左右两列；:has(>[data-shell-overlay]) 命中框架本身，
+  // 把网格收成单列。分栏拖动条（handle）隐藏后留着会挡住中间列的点击，一并去掉。
+  style.textContent = 'html.pk-immersive [class*="sidebarCol"],html.pk-immersive [data-rightbar-col],html.pk-immersive [data-shell-leading]{display:none!important}'
+    + 'html.pk-immersive :has(>[data-shell-overlay]){grid-template-columns:0 minmax(0,1fr) 0!important}'
+    + 'html.pk-immersive :has(>[data-shell-overlay])>[class*="handle"]{display:none!important}'
+    + 'html.pk-immersive [data-global-panel]{padding-top:0!important}';
   document.head.append(style);
-  const hidden = new Set();
-  let frameNode = null;
-  let frame = 0;
-  let timer = 0;
-  const sweep = () => {
-    const panel = document.querySelector('[data-global-panel]');
-    document.documentElement.classList.toggle('pk-immersive', panel !== null);
-    const next = new Set();
-    if (panel !== null) {
-      const chrome = document.querySelector('[data-shell-overlay]') ?? document.querySelector('[data-shell-leading]');
-      const host = chrome?.parentElement;
-      if (host !== undefined && host !== null && host.contains(panel)) {
-        if (frameNode !== host) {
-          if (frameNode !== null && frameNode.isConnected) frameNode.removeAttribute('data-pk-frame');
-          frameNode = host;
-        }
-        host.setAttribute('data-pk-frame', '');
-        // 宿主框架里与中心列并列的区域整体隐藏，避免顶部条带的按钮时有时无。
-        let top = panel;
-        while (top.parentElement !== null && top.parentElement !== host) top = top.parentElement;
-        for (const child of host.children) if (child !== top) next.add(child);
-      }
-      for (const node of document.querySelectorAll('button,[role="button"],a')) {
-        if (panel.contains(node) || node.closest('[data-pk-immersive]') !== null) continue;
-        const rect = node.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0 && rect.height <= 48 && rect.top >= 0 && rect.top < 56) next.add(node);
-      }
-    }
-    for (const node of hidden) if (!next.has(node)) { node.removeAttribute('data-pk-immersive'); hidden.delete(node); }
-    if (panel === null && frameNode !== null) { frameNode.removeAttribute('data-pk-frame'); frameNode = null; }
-    for (const node of next) if (!hidden.has(node)) { node.setAttribute('data-pk-immersive', ''); hidden.add(node); }
-  };
-  const schedule = () => { if (frame === 0) frame = requestAnimationFrame(() => { frame = 0; sweep(); }); };
-  const observer = new MutationObserver(schedule);
-  observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-global-panel'] });
-  schedule();
-  // 重新渲染可能只改类名不增删节点：低频复查，保证顶部入口不会偶发露出来。
-  timer = setInterval(sweep, 700);
-  try { window[key] = { document }; } catch { return noop; }
+  const sync = () => document.documentElement.classList.toggle('pk-immersive', store.getSnapshot()?.activePanelId != null);
+  sync();
+  const stop = store.subscribe(sync);
   return () => {
-    observer.disconnect();
-    if (frame) cancelAnimationFrame(frame);
-    clearInterval(timer);
+    if (typeof stop === 'function') stop();
     style.remove();
     document.documentElement.classList.remove('pk-immersive');
-    for (const node of hidden) node.removeAttribute('data-pk-immersive');
-    hidden.clear();
-    if (frameNode !== null) { frameNode.removeAttribute('data-pk-frame'); frameNode = null; }
   };
 }
 

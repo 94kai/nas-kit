@@ -100,7 +100,8 @@ window.__ModuleLoader__.load({
         const sessions = (useSessions || noSnapshot)(state => state);
         return Object.values(sessions?.byId || {}).find(session => (session.retainedBy?.mainView || 0) > 0);
       }
-      // 空白新会话的标题栏会隐藏工具区，因此只有非空白会话才把入口交给会话标题栏。
+      // 空白会话的标题栏不渲染 utilities（旁边记所在区域），只剩右侧栏按钮；
+      // 为了让入口和它一样可见，空白会话改用 shell.overlay 固定副本，面板打开时两者都不出。
       function GlobalHeader(props) {
         const activePanelId = (props.usePanelInfo || noSnapshot)(info => info.activePanelId);
         const session = currentSession(props.useSessions), sessionId = session?.id;
@@ -110,7 +111,7 @@ window.__ModuleLoader__.load({
           listener => inputStore.subscribe(listener),
           () => inputStore.getSnapshot()
         );
-        if (activePanelId === null && sessionId && !session.blank) return null;
+        if (activePanelId !== null || !sessionId || !session.blank) return null;
         return h('div', { className: 'pk-an-globalHeader' }, h(Header, { sessionId, useWorkspaces: props.useWorkspaces, input, inputActions: runtime?.inputActions }));
       }
       function Header(props) {

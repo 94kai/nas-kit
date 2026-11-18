@@ -65,7 +65,7 @@ terminal-touch-keys工厂和viewport辅助逻辑纳入根构建，与已有六�
 
 ## 1.7.0 旁边记服务端化
 
-旁边记客户端工厂接入唯一载体，使用会话顶部和 shell.overlay 正式 Slot；同包新增 `aside-note` Host 子路径，共10个业务Host与1个客户端载体。便笺、草稿、转发标记和设置保存到独立 `.local/data/aside-note/notes.json`，通过带版本的 Connection API 访问，不向浏览器持久化。原独立插件保留，旧浏览器数据通过显式迁移合并。详见[旁边记](features/aside-note.md)。
+旁边记客户端工厂接入唯一载体，入口用会话顶部栏 `conversation.session.header.utilities`，浮层用 `shell.overlay`；同包新增 `aside-note` Host 子路径，共10个业务Host与1个客户端载体。便笺、草稿、转发标记和设置保存到独立 `.local/data/aside-note/notes.json`，通过带版本的 Connection API 访问，不向浏览器持久化。原独立插件保留，旧浏览器数据通过显式迁移合并。详见[旁边记](features/aside-note.md)。
 
 ## 1.8.0 移除文件管理
 

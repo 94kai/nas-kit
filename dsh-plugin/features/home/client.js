@@ -66,18 +66,19 @@ window.__ModuleLoader__.load({
       const sessions=(useSessions||noSnapshot)(state=>state);
       return Object.values(sessions?.byId||{}).find(session=>(session.retainedBy?.mainView||0)>0);
     }
-    // 空白新会话的标题栏会隐藏工具区，因此只有非空白会话才把入口交给会话标题栏。
+    // 空白会话的标题栏不渲染 utilities（工具箱/旁边记所在区域），只剩右侧栏按钮；
+    // 为了让入口和它一样可见，空白会话改用 shell.overlay 固定副本，面板打开时两者都不出。
     function GlobalLauncher({open,usePanelInfo,useSessions}){
       const activePanelId=(usePanelInfo||noSnapshot)(info=>info.activePanelId);
       const session=currentSession(useSessions);
-      if(activePanelId===null&&session?.id&&!session.blank)return null;
+      if(activePanelId!==null||session?.blank!==true)return null;
       return h(HeaderLauncher,{open,global:true});
     }
     return {inject:['slots','layout','locale'],apply(ctx){
       ctx.effect(()=>ctx.locale.register(NS,{zh:dictionaries.zh,en:dictionaries.zh}));
       ctx.effect(()=>kitTrackLastPanel(ctx));
       ctx.effect(()=>trackHomeOpen(ctx,PANEL));
-      ctx.effect(()=>mountImmersiveChrome());
+      ctx.effect(()=>mountImmersiveChrome(ctx));
       ctx.slots.inject('main',()=>{
         const dispose=ctx.slots.register({name:'main',key:PANEL,locale:NS,children:{'local.pocket-kit.home.tool':{kind:'list',scope:'root'}}},props=>h(Page,{...props,open:id=>ctx.layout.selectPanel(id),chat:()=>ctx.layout.selectPanel(null)}));
         const stopStartup=mountHomeStartup(ctx,PANEL);
