@@ -1,5 +1,6 @@
 package top.fnaio.direct;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
@@ -18,13 +19,21 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ImageView;
 import android.widget.HorizontalScrollView;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.webkit.CookieManager;
+import android.webkit.SslErrorHandler;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import java.net.URI;
 import java.util.ArrayList;
+import java.util.Map;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
@@ -83,7 +92,8 @@ public final class VoiceChatActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        prefs=getSharedPreferences("quick-panel",MODE_PRIVATE);
+        prefs=getSharedPreferences("chat",MODE_PRIVATE);
+        migrateLegacyPrefs();
         base=prefs.getString(prefs.getBoolean("use_public",false)?"public_url":"lan","");
         sessionId=prefs.getString("voice-session:"+base,"");
         build();
@@ -91,8 +101,21 @@ public final class VoiceChatActivity extends Activity {
         restoreDraft(state);
         java.io.File[] oldDrafts=getCacheDir().listFiles((dir,name)->name.startsWith("chat-draft-")&&name.endsWith(".jpg")||name.startsWith("chat-file-")&&name.endsWith(".bin"));
         if(oldDrafts!=null)for(java.io.File file:oldDrafts)if(System.currentTimeMillis()-file.lastModified()>24*60*60*1000L)file.delete();
-        if(base.isEmpty()){ hint.setText("请先在快捷控制入口设置 DSH 服务地址"); return; }
+        if(base.isEmpty()){ hint.setText("请先设置聊天服务地址"); if(state==null) hint.post(this::settings); return; }
         if(sessionId.isEmpty()) chooseSession(); else loadLocalMessages();
+    }
+    /** 早期版本把聊天地址存在快捷控制页；升级后一次性搬运，保留已选会话与本地记录。 */
+    private void migrateLegacyPrefs(){
+        if(!prefs.getAll().isEmpty())return;
+        SharedPreferences legacy=getSharedPreferences("quick-panel",MODE_PRIVATE);
+        Map<String,?> values=legacy.getAll();
+        if(values.isEmpty())return;
+        SharedPreferences.Editor editor=prefs.edit();
+        for(Map.Entry<String,?> entry:values.entrySet()){
+            if(entry.getValue() instanceof String)editor.putString(entry.getKey(),(String)entry.getValue());
+            else if(entry.getValue() instanceof Boolean)editor.putBoolean(entry.getKey(),(Boolean)entry.getValue());
+        }
+        if(editor.commit())legacy.edit().clear().apply();
     }
     private int dp(int n){return Math.round(n*getResources().getDisplayMetrics().density);}
     private TextView label(String s,int size,int color){TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(color);t.setIncludeFontPadding(false);return t;}
@@ -104,6 +127,7 @@ public final class VoiceChatActivity extends Activity {
         root.setOnApplyWindowInsetsListener((v,i)->{if(android.os.Build.VERSION.SDK_INT>=30){android.graphics.Insets x=i.getInsets(WindowInsets.Type.systemBars()|WindowInsets.Type.ime());v.setPadding(dp(16)+x.left,dp(10)+x.top,dp(16)+x.right,dp(12)+x.bottom);}return i;});
         LinearLayout top=new LinearLayout(this);top.setGravity(Gravity.CENTER_VERTICAL);
         sessionLabel=label("选择会话 ▾",18,INK);sessionLabel.setTypeface(null,Typeface.BOLD);sessionLabel.setSingleLine(true);sessionLabel.setEllipsize(android.text.TextUtils.TruncateAt.END);sessionLabel.setGravity(Gravity.CENTER_VERTICAL);sessionLabel.setContentDescription("切换会话");sessionLabel.setOnClickListener(v->chooseSession());top.addView(sessionLabel,new LinearLayout.LayoutParams(0,dp(48),1));
+        Button settings=button("设置",false);settings.setOnClickListener(v->settings());top.addView(settings,new LinearLayout.LayoutParams(dp(58),dp(44)));
         Button reload=button("补收",false);reload.setOnClickListener(v->resumePending());reload.setOnLongClickListener(v->{managePending();return true;});top.addView(reload,new LinearLayout.LayoutParams(dp(64),dp(44)));root.addView(top);
         hint=label("只在点击发送后提交文字、图片和文件",12,MUTED);hint.setPadding(0,dp(2),0,dp(8));root.addView(hint);
         ScrollView sc=new ScrollView(this);sc.setFillViewport(true);sc.setClipToPadding(false);messages=new LinearLayout(this);messages.setOrientation(LinearLayout.VERTICAL);messages.setPadding(0,dp(12),0,dp(12));sc.addView(messages);root.addView(sc,new LinearLayout.LayoutParams(-1,0,1));
@@ -120,6 +144,80 @@ public final class VoiceChatActivity extends Activity {
     }
     private Button button(String text,boolean filled){Button b=new Button(this);b.setText(text);b.setTextSize(14);b.setAllCaps(false);b.setTextColor(filled?Color.WHITE:TEAL);b.setBackground(bg(filled?TEAL:Color.TRANSPARENT,14));b.setElevation(0);b.setStateListAnimator(null);b.setMinWidth(0);b.setMinimumWidth(0);b.setMinHeight(0);b.setMinimumHeight(0);b.setPadding(dp(8),0,dp(8),0);return b;}
     private String cleanTitle(String text){return text==null||text.trim().equalsIgnoreCase("null")?"":text.trim();}
+    private void settings(){
+        LinearLayout form=new LinearLayout(this);form.setOrientation(LinearLayout.VERTICAL);form.setPadding(dp(20),dp(8),dp(20),0);
+        EditText lan=new EditText(this);lan.setSingleLine(true);lan.setTextSize(15);lan.setTextColor(INK);lan.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_URI);lan.setHint("局域网 HTTPS 地址，如 https://192.168.1.2/dsh/");lan.setText(prefs.getString("lan",""));form.addView(lan);
+        EditText pub=new EditText(this);pub.setSingleLine(true);pub.setTextSize(15);pub.setTextColor(INK);pub.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_URI);pub.setHint("公网 HTTPS 地址，如 https://域名/dsh/");pub.setText(prefs.getString("public_url",""));form.addView(pub);
+        Switch select=new Switch(this);select.setText("使用公网地址");select.setTextColor(INK);select.setTextSize(15);select.setChecked(prefs.getBoolean("use_public",false));form.addView(select);
+        TextView help=label("填写 DSH 服务根地址（可带挂载路径）。只接受受信任证书的 HTTPS，地址中不能填写凭据；两处地址各自登录。使用飞牛 FN ID 地址时，先到 DSH 入口完成飞牛登录。",12,MUTED);
+        help.setLineSpacing(dp(3),1);help.setPadding(dp(4),dp(12),dp(4),0);form.addView(help);
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("聊天入口设置").setView(form).setNegativeButton("取消",null).setNeutralButton("登录服务",null).setPositiveButton("保存",null).create();
+        dialog.setOnShowListener(v->{
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(w->{if(applySettings(lan,pub,select)){dialog.dismiss();login();}});
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(w->{if(applySettings(lan,pub,select))dialog.dismiss();});
+        });
+        dialog.show();
+    }
+    private boolean applySettings(EditText lan,EditText pub,Switch select){
+        if(preparing||importing>0||importingFiles>0){Toast.makeText(this,"消息或附件处理中，请稍后再改设置",Toast.LENGTH_LONG).show();return false;}
+        String l,p;
+        try{
+            l=lan.getText().toString().trim();p=pub.getText().toString().trim();
+            l=l.isEmpty()?"":ServiceEndpoint.normalize(l);
+            p=p.isEmpty()?"":ServiceEndpoint.normalize(p);
+            if((select.isChecked()?p:l).isEmpty())throw new IllegalArgumentException();
+        }catch(Exception e){
+            Toast.makeText(this,"请输入有效的 HTTPS 服务地址，且不能包含凭据、参数或相对路径",Toast.LENGTH_LONG).show();
+            return false;
+        }
+        if(!prefs.edit().putString("lan",l).putString("public_url",p).putBoolean("use_public",select.isChecked()).commit()){
+            Toast.makeText(this,"无法保存聊天设置",Toast.LENGTH_LONG).show();
+            return false;
+        }
+        lan.setText(l);pub.setText(p);
+        String chosen=select.isChecked()?p:l;
+        if(!chosen.equals(base)){
+            base=chosen;
+            waitGeneration++;
+            if(waitConnection!=null)waitConnection.disconnect();
+            sessionId=prefs.getString("voice-session:"+base,"");
+            sessionLabel.setText(sessionId.isEmpty()?"选择会话 ▾":prefs.getString("chat-title:"+base+":"+sessionId,"聊天")+" ▾");
+            loadLocalMessages();
+        }
+        hint.setText("地址已保存；需要时点「登录服务」完成认证");
+        if(sessionId.isEmpty())chooseSession();
+        return true;
+    }
+    @SuppressLint("SetJavaScriptEnabled") private void login(){
+        if(base.isEmpty()){settings();return;}
+        WebView web=new WebView(this);
+        web.getSettings().setJavaScriptEnabled(true);
+        web.getSettings().setDomStorageEnabled(true);
+        web.getSettings().setAllowFileAccess(false);
+        web.getSettings().setAllowContentAccess(false);
+        web.getSettings().setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        CookieManager.getInstance().setAcceptCookie(true);
+        CookieManager.getInstance().setAcceptThirdPartyCookies(web,false);
+        final URI origin=URI.create(base);
+        web.setWebViewClient(new WebViewClient(){
+            @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
+                URI target;try{target=URI.create(request.getUrl().toString());}catch(Exception e){return true;}
+                return !"https".equalsIgnoreCase(target.getScheme())||!origin.getHost().equalsIgnoreCase(target.getHost())||port(origin)!=port(target);
+            }
+            @Override public void onReceivedSslError(WebView view,SslErrorHandler handler,android.net.http.SslError error){
+                handler.cancel();Toast.makeText(VoiceChatActivity.this,"证书校验失败，已阻止连接",Toast.LENGTH_LONG).show();
+            }
+        });
+        FrameLayout frame=new FrameLayout(this);
+        frame.addView(web,new FrameLayout.LayoutParams(-1,Math.min(dp(420),(int)(getResources().getDisplayMetrics().heightPixels*.6))));
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("登录聊天服务").setView(frame)
+                .setPositiveButton("完成",(d,w)->{CookieManager.getInstance().flush();hint.setText("登录状态已保存，可以补收或发送");})
+                .setNegativeButton("关闭",null).create();
+        dialog.setOnDismissListener(d->{web.stopLoading();web.destroy();});
+        dialog.show();
+        web.loadUrl(base);
+    }
+    private static int port(URI uri){return uri.getPort()==-1?443:uri.getPort();}
     private void chooseSession(){
         if(base.isEmpty())return; hint.setText("正在读取会话…");int ticket=++epoch;
         rpc("session/list",json("_request",new JSONObject()),result->{if(ticket!=epoch)return;JSONArray items=result.optJSONArray("items");if(items==null||items.length()==0){hint.setText("当前账号没有可用会话");return;}String[] names=new String[items.length()];String[] ids=new String[items.length()];for(int i=0;i<items.length();i++){JSONObject s=items.optJSONObject(i);ids[i]=s==null?"":cleanTitle(s.optString("sessionId"));JSONObject projections=s==null?null:s.optJSONObject("projections");JSONObject values=projections==null?null:projections.optJSONObject("values");String title=values==null?"":cleanTitle(values.optString("title",""));if(title.isEmpty())title=s==null?ids[i]:cleanTitle(s.optString("cwd",ids[i]));if(title.isEmpty())title="未命名会话";String shortId=ids[i].replaceFirst("^session-", "");names[i]=title+"  ·  "+shortId.substring(0,Math.min(8,shortId.length()));}hint.setText("选择要继续记录的对话");showSessionPicker(names,ids);},e->hint.setText(e));
@@ -170,7 +268,7 @@ public final class VoiceChatActivity extends Activity {
     }
     private void sendText(){String s=composer.getText().toString().trim();if(importing>0||importingFiles>0){hint.setText("附件处理中，请稍候再发送");return;}if(!s.isEmpty()||!pendingImages.isEmpty()||!pendingFiles.isEmpty())sendPrompt(s,new ArrayList<>(pendingImages),new ArrayList<>(pendingFiles));}
     private void sendPrompt(String text,ArrayList<byte[]> images,ArrayList<PendingFile> files){
-        if(base.isEmpty()){hint.setText("请先在快捷控制入口设置服务地址");return;}
+        if(base.isEmpty()){hint.setText("请先在设置中填写聊天服务地址");return;}
         if(sessionId.isEmpty()){chooseSession();return;}
         if(preparing){hint.setText("正在准备或上传，请稍候");return;}
         if(pending(sessionId).length()>0){hint.setText("上一条还未确认，请先补收；长按补收可处理待收记录");return;}

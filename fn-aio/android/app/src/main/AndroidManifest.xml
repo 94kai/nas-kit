@@ -13,19 +13,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".VoiceChatActivity" android:exported="true" android:launchMode="singleTask" android:taskAffinity="top.fnaio.direct.voice" android:label="聊天" android:icon="@drawable/ic_deepseek" android:roundIcon="@drawable/ic_deepseek" android:windowSoftInputMode="adjustResize">
+        <activity android:name=".VoiceChatActivity" android:exported="true" android:launchMode="singleTask" android:taskAffinity="top.fnaio.direct.voice" android:label="聊天" android:icon="@mipmap/ic_entry_chat" android:roundIcon="@mipmap/ic_entry_chat" android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity tools:ignore="UnusedAttribute" android:name=".ToolboxActivity" android:exported="true" android:launchMode="singleTask" android:taskAffinity="top.fnaio.direct.toolbox" android:label="工具箱" android:icon="@drawable/ic_toolbox" android:roundIcon="@drawable/ic_toolbox" android:windowSoftInputMode="adjustResize" android:enableOnBackInvokedCallback="true" android:configChanges="orientation|screenSize|keyboardHidden">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-        <activity android:name=".QuickActivity" android:exported="true" android:launchMode="singleTask" android:taskAffinity="top.fnaio.direct.quick" android:label="快捷控制" android:icon="@drawable/ic_aio" android:roundIcon="@drawable/ic_aio" android:windowSoftInputMode="adjustResize">
+        <activity tools:ignore="UnusedAttribute" android:name=".ToolboxActivity" android:exported="true" android:launchMode="singleTask" android:taskAffinity="top.fnaio.direct.toolbox" android:label="工具箱" android:icon="@mipmap/ic_entry_toolbox" android:roundIcon="@mipmap/ic_entry_toolbox" android:windowSoftInputMode="adjustResize" android:enableOnBackInvokedCallback="true" android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

@@ -3,8 +3,8 @@ package top.fnaio.direct;
 import java.net.URI;
 
 /** Validate endpoint before any session cookie or request is sent. */
-final class QuickEndpoint {
-    private QuickEndpoint() { }
+final class ServiceEndpoint {
+    private ServiceEndpoint() { }
 
     static String normalize(String input) {
         try {

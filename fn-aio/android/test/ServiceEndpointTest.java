@@ -1,6 +1,6 @@
 package top.fnaio.direct;
 
-public final class QuickEndpointTest {
+public final class ServiceEndpointTest {
     public static void main(String[] args) {
         expect("https://example.test/dsh", "https://example.test/dsh/");
         expect("https://192.168.1.2:8443/app/aio/s/dsh/", "https://192.168.1.2:8443/app/aio/s/dsh/");
@@ -18,10 +18,10 @@ public final class QuickEndpointTest {
         System.out.println("13 tests passed");
     }
     private static void expect(String input,String expected) {
-        if (!expected.equals(QuickEndpoint.normalize(input))) throw new AssertionError("normalization failed");
+        if (!expected.equals(ServiceEndpoint.normalize(input))) throw new AssertionError("normalization failed");
     }
     private static void reject(String input) {
-        try { QuickEndpoint.normalize(input); throw new AssertionError("unsafe URL accepted"); }
+        try { ServiceEndpoint.normalize(input); throw new AssertionError("unsafe URL accepted"); }
         catch (IllegalArgumentException expected) { }
     }
 }
