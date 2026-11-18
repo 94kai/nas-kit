@@ -35,9 +35,6 @@ test('client registers paired homepage launcher and main panel through scoped in
   assert.equal(sidebar.meta.label(), '出门清单');
   assert.equal(sidebar.meta.order, 30);
   assert.equal(typeof sidebar.component, 'function');
-  main.component().props.home();
-  assert.deepEqual(navigations, ['pocket-kit.home']);
-  navigations.length = 0;
   main.component().props.chat();
   assert.deepEqual(navigations, [null]);
   navigations.length = 0;

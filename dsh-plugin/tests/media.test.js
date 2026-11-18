@@ -28,14 +28,14 @@ test('built music panel no longer embeds the xiaoai switch', () => {
   const { render, nodes } = fixture();
   const all = nodes(render('pocket-kit.music'));
   assert.ok(all.some(node => node.type === 'h1' && node.children.includes('音乐')));
-  assert.ok(all.some(node => typeof node.type === 'function' && node.type.name === 'KitNavActions' && typeof node.props.chat === 'function' && typeof node.props.home === 'function'));
+  assert.ok(all.some(node => typeof node.type === 'function' && node.type.name === 'KitNavActions' && typeof node.props.chat === 'function'));
   assert.ok(!all.some(node => node.type === 'nav' && node.props['aria-label'] === '功能切换'));
-  assert.ok(!all.some(node => node.type === 'button' && node.children.includes('小爱音箱')));
+  assert.ok(!all.some(node => node.type === 'button' && node.children.includes('小爱音乐')));
 });
 
 test('built xiaoai panel no longer embeds the music switch', () => {
   const { render, nodes } = fixture();
   const all = nodes(render('pocket-kit.xiaoai'));
-  assert.ok(all.some(node => node.type === 'h1' && node.children.includes('小爱音箱')));
+  assert.ok(all.some(node => node.type === 'h1' && node.children.includes('小爱音乐')));
   assert.ok(!all.some(node => node.type === 'button' && node.children.includes('音乐')));
 });

@@ -12,7 +12,7 @@ async function xiaoaiReadbackAfterCommit(readback, onWarning) {
   catch (error) { if (error.name !== 'AbortError') onWarning(error); return false; }
 }
 
-function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, select }) {
+function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, select }, fixedTab = 'playback') {
   // One shared observer pauses marquee animations while a row is off screen.
   let xiaoaiMarqueeObserver = null;
   const xiaoaiMarqueeCallbacks = new WeakMap();
@@ -98,7 +98,7 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
   }
   return function XiaoaiView() {
     const api = useApi('xiaoai'), action = useAction();
-    const [tab, setTab] = React.useState('playback'), [profiles, setProfiles] = React.useState([]), [selected, setSelected] = React.useState('');
+    const [profiles, setProfiles] = React.useState([]), [selected, setSelected] = React.useState('');
     const [loading, setLoading] = React.useState(true), [collectionState, setCollection] = React.useState({ profileId: '', ready: false, playlist: [], favorites: [] });
     const [libraryTab, setLibraryTab] = React.useState('playlist'), [query, setQuery] = React.useState(''), [hits, setHits] = React.useState([]), [searched, setSearched] = React.useState(false), [searchedKeyword, setSearchedKeyword] = React.useState('');
     const [playMode, setPlayMode] = React.useState('sequence'), [volume, setVolume] = React.useState(30);
@@ -117,6 +117,7 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
     if (!collectionGate.current) collectionGate.current = createXiaoaiReadGate();
     selectedRef.current = selected;
     const collectionReady = collectionState.profileId === selected && collectionState.ready;
+    const tab = fixedTab;
     const favoritesReady = collectionReady && collectionState.favoritesReady !== false;
     const collection = collectionReady ? collectionState : { playlist: [], favorites: [] };
     const profile = profiles.find(p => p.id === selected), connected = !!profile?.speakerConnected, online = !!profile?.online;
@@ -199,15 +200,6 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
       if (profile?.currentSong && online) perform(async () => { await call(P('playlist/mode'), { mode: next }); }, '播放模式已切换');
     }
     function changeSpeaker(id) { if (action.busy || id === selectedRef.current) return; action.clear(); invalidateCollection(id); selectedRef.current = id; setSelected(id); }
-    function scrollViewTop() {
-      const scroller = rootRef.current?.closest('.pk-media');
-      if (scroller) scroller.scrollTop = 0;
-      else if (typeof window !== 'undefined') window.scrollTo(0, 0);
-    }
-    function switchTab(id) {
-      if (id === tab) return;
-      action.clear(); setConfigDraft(null); setTab(id); requestAnimationFrame(scrollViewTop);
-    }
     function switchLibraryTab(id) {
       if (id === libraryTab) return;
       action.clear(); setConfigDraft(null); setLibraryTab(id);
@@ -483,8 +475,7 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
           controlDraft.mode === 'pair' ? h(React.Fragment, null, field('开启按钮文字', controlDraft.onLabel, value => updateControl('onLabel', value), { maxLength: 10 }), field('开启指令', controlDraft.onCommand, value => updateControl('onCommand', value), { required: true, maxLength: 200 }), field('关闭按钮文字', controlDraft.offLabel, value => updateControl('offLabel', value), { maxLength: 10 }), field('关闭指令', controlDraft.offCommand, value => updateControl('offCommand', value), { required: true, maxLength: 200 })) : field('执行指令', controlDraft.command, value => updateControl('command', value), { required: true, maxLength: 200 }),
           h('div', { className: 'pk-actions' }, h('button', { type: 'submit', disabled: action.busy }, '保存快捷控制'), button('取消', () => setControlDraft(null), action.busy), controlDraft.id && button('删除', async () => { if (!confirm('删除此快捷控制？不会控制真实设备。')) return; const ok = await perform(async () => { await call(`${A}/controls/${encodeURIComponent(controlDraft.id)}`, undefined, 'DELETE', 'assistant'); setControlDraft(null); await readback(() => loadAssistant(), '音响控制数据已保存'); return true; }, '快捷控制已删除'); if (ok) setControlDraft(null); }, action.busy, 'pk-danger')))));
     }
-    return h('fieldset', { ref: rootRef, disabled: action.busy, style: { border: 0, padding: 0, margin: 0, minWidth: 0 }, 'aria-label': '小爱音箱操作' },
-      h('nav', { className: 'pk-tabs', 'aria-label': '小爱音箱子视图' }, [['playback', '小爱播放'], ['assistant', '音响控制']].map(([id, label]) => h('button', { type: 'button', key: id, 'aria-pressed': tab === id, onClick: () => switchTab(id) }, label))),
+    return h('fieldset', { ref: rootRef, disabled: action.busy, style: { border: 0, padding: 0, margin: 0, minWidth: 0 }, 'aria-label': tab === 'playback' ? '小爱音乐操作' : '小爱控制操作' },
       h('div', { className: `pk-xiaoai-status${statusActive && !configDraft ? ' is-active' : ''}` },
         h('div', { className: 'pk-xiaoai-status-bar' },
           h('div', { className: 'pk-xiaoai-status-body' }, h(Status, { state: action })),

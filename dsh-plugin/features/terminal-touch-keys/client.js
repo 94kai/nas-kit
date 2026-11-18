@@ -38,12 +38,12 @@ window.__ModuleLoader__.load({
     }
     const PANEL='pocket-kit.native-terminal';
     function TerminalIcon({size=18}){return h('svg',{width:size,height:size,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},h('path',{d:'m4 5 6 7-6 7 M12 19h8'}));}
-    function NativeEntryPage({t,open,back,home,getError}){
+    function NativeEntryPage({t,open,back,getError}){
       const [error,setError]=React.useState(getError());
       const launch=React.useCallback(()=>{open();},[open]);
       React.useEffect(()=>{if(!getError())launch();},[launch,getError]);
       return h('section',{style:{height:'100%',boxSizing:'border-box',padding:20,color:'var(--dsw-alias-label-primary)',background:'var(--dsw-alias-bg-base)'}},
-        h('header',{style:{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,flexWrap:'wrap',marginBottom:16}},h('h1',{style:{fontSize:18,margin:0}},t('terminal')),h(KitNavActions,{chat:back,home})),
+        h('header',{style:{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,flexWrap:'wrap',marginBottom:16}},h('h1',{style:{fontSize:18,margin:0}},t('terminal')),h(KitNavActions,{chat:back})),
         h('p',{role:error?'alert':'status'},error||t('opening')),
         h('button',{type:'button',onClick:launch,style:{minHeight:44,padding:'8px 14px',font:'inherit',color:'inherit',background:'var(--dsw-alias-bg-layer-1)',border:'1px solid var(--dsw-alias-border-l2)',borderRadius:8}},t('retry'))
       );
@@ -65,7 +65,7 @@ window.__ModuleLoader__.load({
           if(result==='no-session'&&!signal.aborted){error=t('selectSession');ctx.layout.selectPanel(PANEL);}
         }catch{if(!signal.aborted){error=t('openFailed');ctx.layout.selectPanel(PANEL);}}
       };
-      ctx.slots.inject('main',()=>ctx.slots.register({name:'main',key:PANEL,locale:ns},props=>h(NativeEntryPage,{...props,open:openNativeTerminal,getError,back:()=>ctx.layout.selectPanel(null),home:()=>ctx.layout.selectPanel('pocket-kit.home')})));
+      ctx.slots.inject('main',()=>ctx.slots.register({name:'main',key:PANEL,locale:ns},props=>h(NativeEntryPage,{...props,open:openNativeTerminal,getError,back:()=>ctx.layout.selectPanel(null)})));
       ctx.slots.inject('local.pocket-kit.home.tool',()=>ctx.slots.register({name:'local.pocket-kit.home.tool',id:PANEL,locale:ns,order:60},({renderCard,t})=>renderCard({id:'terminal',title:t('terminal'),description:t('toolDescription'),icon:h(TerminalIcon),onClick:()=>ctx.layout.selectPanel(PANEL)})));
       ctx.slots.inject('local.terminal.touch.keys',()=>ctx.slots.register({name:'local.terminal.touch.keys',id:'terminal-touch-keys',locale:ns,order:0},Toolbar));
     }};

@@ -36,7 +36,7 @@
 
 ## 共享页面装配与导航
 
-- `features/shared/chrome.js` 在构建时内联到 home、media、utilities、shortcuts、outing-checklist 和终端客户端工厂，统一「返回会话 / 返回首页」按钮样式与上次页面记忆，避免各页面各写一套。
+- `features/shared/chrome.js` 在构建时内联到 home、media、utilities、shortcuts、outing-checklist 和终端客户端工厂，统一「返回会话」按钮样式与上次页面记忆，避免各页面各写一套。
 - 上次页面只把 `pocket-kit.last-panel.v1` 写入浏览器 localStorage，值是稳定主面板 id；不保存业务数据。目标面板不存在时回退 `pocket-kit.home`，原生终端入口不参与记忆。
 - 页面装配仍只负责导航，不读取业务模块内部状态。音乐信息编辑弹窗属于 media 视图，遮罩和滚动只作用于当前页面。
 
@@ -46,7 +46,7 @@
 - `lib/module-host.mjs` 的 FeatureService 是 UI 和 Agent 工具共用的操作入口；`lib/http-adapter.mjs` 把原 Node HTTP 业务处理器接到 DSH Fetch，不另开管理服务器。
 - 实际管理路由为 `POST /api/pocket-kit/music` 和 `POST /api/pocket-kit/xiaoai`，输入 `{module,path,method,body}`，path 是功能内短路径。外层只允许带 `X-Pocket-Kit: 1` 的同源 JSON；内层支持旧 GET/POST/PUT/DELETE 语义。
 - 音乐 module 为 `music`；小爱为 `playback`（默认）和 `assistant`。浏览器音频单独走已认证的 `GET /api/pocket-kit/music/audio?file=...`，支持 Range，不把整个音频缓存在内存。该 GET 路由必须用 `requestBody:'buffered'`；声明为 `streaming` 会让 Fetch 桥接层构造带 body 的 GET Request 并返回空 400。
-- 主面板/侧栏 key：`pocket-kit.music`、`pocket-kit.xiaoai`；各有独立入口，页面内不互相切换。
+- 主面板 key：`pocket-kit.music`、`pocket-kit.xiaoai`、`pocket-kit.xiaoai-control`；音乐、小爱音乐、小爱控制各有独立入口，页面内不互相切换。
 - Agent 的 `pocket_music` / `pocket_xiaoai` 先 help 发现具体操作，再 request；与 UI 共用业务方法。登录授权与下载器安装不开放给 Agent 工具。真实设备控制必须符合用户明确请求。
 - 查询请求取消会中止音乐搜索/刮削/标签读取的网络或子进程；已接收的下载任务归 Host，页面关闭不撤销入队。卸载会中止本实例任务并清理。
 - 小爱 worker 是业务必须的设备协议桥，不是替代 DSH GUI 的服务器；已确认局域网风险且未关闭自动启动时，Host 加载后自动连接；未确认风险仍暂停，始终不连接或接管其他进程的旧 worker。详细数据与验证见[迁移记录](music-xiaoai-migration.md)。

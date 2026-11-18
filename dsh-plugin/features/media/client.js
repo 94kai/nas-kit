@@ -16,6 +16,9 @@ window.__ModuleLoader__.load({
 .pk-media .pk-volume{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .pk-media .pk-volume label{flex:1;min-width:170px}
 .pk-media .pk-volume input[type=range]{width:100%;height:44px;min-height:44px;padding:0;border:0;background:transparent;accent-color:var(--dsw-alias-brand-primary)}
+@media(min-width:641px){.pk-media .pk-toolbar{padding-top:32px}html.pk-immersive .pk-media .pk-toolbar{padding-top:0}}
+.pk-media .pk-toolbar-title{min-width:0}
+.pk-media .pk-toolbar-title p{margin:3px 0 0;font-size:12px;line-height:1.4;color:var(--dsw-alias-label-secondary)}
 .pk-media .pk-xiaoai-service>.pk-actions{margin-top:8px}.pk-media .pk-xiaoai-service-body{margin-top:12px;padding-top:8px;border-top:1px solid var(--dsw-alias-border-l2)}.pk-media .pk-xiaoai-auto>.pk-form,.pk-media .pk-xiaoai-auto>label{margin-top:12px}.pk-media .pk-xiaoai-auto h3{margin-bottom:12px}.pk-media .pk-xiaoai-auto .pk-panel{scroll-margin-top:70px}.pk-media .pk-xiaoai-status:not(.is-active){display:none}
 .pk-media .pk-xiaoai-status.is-active{position:sticky;top:0;z-index:6;background:var(--dsw-alias-bg-base);border-bottom:1px solid var(--dsw-alias-border-l2);padding:2px 0 6px;margin-bottom:4px}
 .pk-media .pk-xiaoai-status-bar{display:flex;align-items:flex-start;gap:8px}
@@ -109,17 +112,24 @@ window.__ModuleLoader__.load({
     const field=(label,value,onChange,options={})=>h('label',null,label,h('input',{value:value??'',onChange:event=>onChange(event.target.value),...options}));
     const select=(label,value,onChange,options)=>h('label',null,label,h('select',{value,onChange:event=>onChange(event.target.value)},options.map(([value,label])=>h('option',{key:value,value},label))));
     const shared={h,useApi,useAction,Status,button,field,select};
-    const MusicView=createMusicView(React,shared),XiaoaiView=createXiaoaiView(React,shared);
-    function Icon({size=20,type='music'}){return type==='xiaoai'?h('svg',{width:size,height:size,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,'aria-hidden':true},h('rect',{x:6,y:2,width:12,height:20,rx:4}),h('path',{d:'M10 6h4'}),h('circle',{cx:12,cy:14,r:3.5})):h('svg',{width:size,height:size,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,'aria-hidden':true},h('path',{d:'M9 18V5l11-2v13M9 8l11-2'}),h('ellipse',{cx:6,cy:18,rx:3,ry:2}),h('ellipse',{cx:17,cy:16,rx:3,ry:2}));}
-    // 音乐和小爱各自有独立入口，页面内不再互相切换。
-    function Page({tab,chat,home}){return h('section',{className:'pk-media','aria-label':tab==='music'?'音乐':'小爱音箱'},h('style',null,css),h('div',{className:'pk-media-inner'},h('header',{className:'pk-toolbar'},h('h1',null,tab==='music'?'音乐':'小爱音箱'),h(KitNavActions,{chat,home})),tab==='music'?h(MusicView):h(XiaoaiView)));}
+    const MusicView=createMusicView(React,shared),XiaoaiMusicView=createXiaoaiView(React,shared,'playback'),XiaoaiControlView=createXiaoaiView(React,shared,'assistant');
+    function Icon({size=20,type='music'}){
+      if(type==='control')return h('svg',{width:size,height:size,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,strokeLinecap:'round','aria-hidden':true},h('path',{d:'M6 4v5M6 15v5M12 4v3M12 13v7M18 4v7M18 17v3'}),h('circle',{cx:6,cy:12,r:2.2}),h('circle',{cx:12,cy:10,r:2.2}),h('circle',{cx:18,cy:14,r:2.2}));
+      return type==='xiaoai'?h('svg',{width:size,height:size,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,'aria-hidden':true},h('rect',{x:6,y:2,width:12,height:20,rx:4}),h('path',{d:'M10 6h4'}),h('circle',{cx:12,cy:14,r:3.5})):h('svg',{width:size,height:size,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.7,'aria-hidden':true},h('path',{d:'M9 18V5l11-2v13M9 8l11-2'}),h('ellipse',{cx:6,cy:18,rx:3,ry:2}),h('ellipse',{cx:17,cy:16,rx:3,ry:2}));
+    }
+    // 音乐、小爱音乐和小爱控制各自独立入口，页面内不再互相切换。
+    const pages=[
+      {panel:'pocket-kit.music',title:'音乐',card:'music',icon:'music',view:MusicView,order:10,description:'搜索、下载与整理喜欢的音乐'},
+      {panel:'pocket-kit.xiaoai',title:'小爱音乐',card:'xiaoai-music',icon:'xiaoai',view:XiaoaiMusicView,order:20,description:'播放曲库与飞牛喜欢，管理播放列表'},
+      {panel:'pocket-kit.xiaoai-control',title:'小爱控制',card:'xiaoai-control',icon:'control',view:XiaoaiControlView,order:25,description:'播报文字、发送小爱指令与快捷控制'}
+    ];
+    function Page({page,chat}){return h('section',{className:'pk-media','aria-label':page.title},h('style',null,css),h('div',{className:'pk-media-inner'},h('header',{className:'pk-toolbar'},h('div',{className:'pk-toolbar-title'},h('h1',null,page.title),h('p',null,page.description)),h(KitNavActions,{chat})),h(page.view)));}
     return {inject:['slots','layout','locale'],apply(ctx){
-      for(const [tab,label,order] of [['music','音乐',10],['xiaoai','小爱音箱',20]]){
-        const panel=`pocket-kit.${tab}`;
-        ctx.slots.inject('main',()=>ctx.slots.register({name:'main',key:panel},()=>h(Page,{tab,chat:()=>ctx.layout.selectPanel(null),home:()=>ctx.layout.selectPanel('pocket-kit.home')})));
-        ctx.slots.inject('local.pocket-kit.home.tool',()=>ctx.slots.register({name:'local.pocket-kit.home.tool',id:panel,order,label:()=>label},({renderCard})=>renderCard({id:tab,title:label,description:tab==='music'?'搜索、下载与整理喜欢的音乐':'播放收藏、管理歌单和音箱',icon:h(Icon,{type:tab}),onClick:()=>ctx.layout.selectPanel(panel)})));
+      for(const page of pages){
+        ctx.slots.inject('main',()=>ctx.slots.register({name:'main',key:page.panel},()=>h(Page,{page,chat:()=>ctx.layout.selectPanel(null)})));
+        ctx.slots.inject('local.pocket-kit.home.tool',()=>ctx.slots.register({name:'local.pocket-kit.home.tool',id:page.panel,order:page.order,label:()=>page.title},({renderCard})=>renderCard({id:page.card,title:page.title,description:page.description,icon:h(Icon,{type:page.icon}),onClick:()=>ctx.layout.selectPanel(page.panel)})));
       }
-      ctx.effect(()=>()=>{const current=ctx.layout.panelInfo.getSnapshot().activePanelId;if(current==='pocket-kit.music'||current==='pocket-kit.xiaoai')ctx.layout.selectPanel(null);});
+      ctx.effect(()=>()=>{const current=ctx.layout.panelInfo.getSnapshot().activePanelId;if(pages.some(page=>page.panel===current))ctx.layout.selectPanel(null);});
     }};
   }
 });

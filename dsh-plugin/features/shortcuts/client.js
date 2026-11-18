@@ -23,6 +23,7 @@ window.__ModuleLoader__.load({
       .shortcuts-links-page { box-sizing: border-box; height: 100%; min-width: 0; overflow: auto; padding: 28px; color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-base); font-size: 14px; line-height: 1.6; }
       .shortcuts-links-page-inner { max-width: 1000px; margin: 0 auto; }
       .shortcuts-links-page header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+      @media (min-width: 641px) { .shortcuts-links-page header { padding-top: 32px; } html.pk-immersive .shortcuts-links-page header { padding-top: 0; } }
       .shortcuts-links-page h1 { font-size: 22px; margin: 0; }
       .shortcuts-links-page h2 { font-size: 16px; margin: 0; }
       .shortcuts-links-muted { color: var(--dsw-alias-label-tertiary); }
@@ -109,7 +110,7 @@ window.__ModuleLoader__.load({
           h('button', { className: 'shortcuts-links-button', type: 'submit', disabled: saving }, saving ? '正在保存…' : '保存'),
           h('button', { className: 'shortcuts-links-button', type: 'button', disabled: saving, onClick: onClose }, '取消')));
     }
-    function Page({ t, chat, home }) {
+    function Page({ t, chat }) {
       const state = useBookmarks();
       const [status, setStatus] = React.useState('');
       const [editor, setEditor] = React.useState(null);
@@ -125,7 +126,7 @@ window.__ModuleLoader__.load({
       return h('section', { className: 'shortcuts-links-page', 'aria-label': t('heading') }, h('style', null, css),
         h('div', { className: 'shortcuts-links-page-inner' },
           h('header', null, h('h1', null, t('heading')),
-            h(KitNavActions, { chat, home })),
+            h(KitNavActions, { chat })),
           h('p', { className: 'shortcuts-links-muted' }, t('description')),
           h('div', { role: 'status', 'aria-live': 'polite' }, status),
           h('div', { className: 'shortcuts-links-actions' },
@@ -154,7 +155,7 @@ window.__ModuleLoader__.load({
       apply(ctx) {
         ctx.effect(() => ctx.locale.register(NS, { zh: dictionaries.zh, en: dictionaries.zh }));
         ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'shortcuts', locale: NS },
-          props => h(Page, { ...props, chat: () => ctx.layout.selectPanel(null), home: () => ctx.layout.selectPanel('pocket-kit.home') })));
+          props => h(Page, { ...props, chat: () => ctx.layout.selectPanel(null) })));
 
       },
     };

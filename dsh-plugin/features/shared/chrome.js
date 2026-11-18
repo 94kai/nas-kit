@@ -6,6 +6,7 @@ const KIT_PANELS = new Set([
   'pocket-kit.home',
   'pocket-kit.music',
   'pocket-kit.xiaoai',
+  'pocket-kit.xiaoai-control',
   'pocket-kit.health',
   'pocket-kit.beijing-pass',
   'pocket-kit.bill-manager',
@@ -38,6 +39,50 @@ function kitOpenLast(ctx) {
   try { ctx.layout.selectPanel(target); } catch { ctx.layout.selectPanel(KIT_HOME); }
 }
 
+const KIT_HISTORY_KEY = Symbol.for('pocket-kit.history.v1');
+
+function kitPanelDepth(id) {
+  if (id === null || id === undefined) return 0;
+  if (id === KIT_HOME) return 1;
+  return KIT_PANELS.has(id) ? 2 : 0;
+}
+
+// Browser/Android back has no history entry to move through while the toolbox
+// swaps panels, so it leaves the whole app. Bookmark one entry whenever we go
+// one level deeper, then treat back as "up one kit level".
+function kitTrackHistory(ctx) {
+  const store = ctx.layout?.panelInfo;
+  const history = typeof window !== 'undefined' ? window.history : null;
+  if (!store?.getSnapshot || !history?.pushState || typeof window.addEventListener !== 'function') return;
+  window[KIT_HISTORY_KEY]?.stop?.();
+  let last = store.getSnapshot()?.activePanelId ?? null;
+  const push = () => { try { history.pushState({'pocket-kit': true}, ''); } catch {} };
+  if (kitPanelDepth(last) > 1) push();
+  const sync = () => {
+    const id = store.getSnapshot()?.activePanelId ?? null;
+    const before = kitPanelDepth(last), after = kitPanelDepth(id);
+    last = id;
+    if (after > before && after > 1) push();
+  };
+  const unsubscribe = typeof store.subscribe === 'function' ? store.subscribe(sync) : undefined;
+  const onPop = () => {
+    const depth = kitPanelDepth(store.getSnapshot()?.activePanelId ?? null);
+    try {
+      if (depth > 1) ctx.layout.selectPanel(KIT_HOME);
+    } catch {}
+  };
+  window.addEventListener('popstate', onPop);
+  const entry = {
+    document: typeof document !== 'undefined' ? document : undefined,
+    stop() { unsubscribe?.(); window.removeEventListener('popstate', onPop); },
+  };
+  try { window[KIT_HISTORY_KEY] = entry; } catch {}
+  return () => {
+    if (window[KIT_HISTORY_KEY] === entry) { try { delete window[KIT_HISTORY_KEY]; } catch {} }
+    entry.stop();
+  };
+}
+
 function kitTrackLastPanel(ctx) {
   const store = ctx.layout?.panelInfo;
   if (!store?.getSnapshot) return;
@@ -46,10 +91,12 @@ function kitTrackLastPanel(ctx) {
     if (typeof id === 'string') kitRememberPanel(id);
   };
   sync();
-  return typeof store.subscribe === 'function' ? store.subscribe(sync) : undefined;
+  const unsubscribe = typeof store.subscribe === 'function' ? store.subscribe(sync) : undefined;
+  const stopHistory = kitTrackHistory(ctx);
+  return () => { unsubscribe?.(); stopHistory?.(); };
 }
 
-const KIT_NAV_CSS = `.kit-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;min-width:0}.kit-nav .kit-nav-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px;padding:8px 13px;border:1px solid color-mix(in srgb,var(--dsw-alias-label-primary) 12%,transparent);border-radius:999px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;font-weight:600;line-height:1.2;white-space:nowrap;cursor:pointer;box-shadow:0 1px 2px #0000000d;transition:background-color .15s,border-color .15s,box-shadow .15s,transform .15s}.kit-nav .kit-nav-btn:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary) 5%,var(--dsw-alias-bg-layer-1));border-color:color-mix(in srgb,var(--dsw-alias-label-primary) 20%,transparent)}.kit-nav .kit-nav-btn:active{transform:translateY(1px)}.kit-nav .kit-nav-btn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.kit-nav .kit-nav-btn-primary{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 9%,var(--dsw-alias-bg-layer-1));border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 26%,transparent);color:var(--dsw-alias-label-primary);box-shadow:0 1px 2px #0000000d}.kit-nav .kit-nav-btn-primary:hover{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 14%,var(--dsw-alias-bg-layer-1));border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 36%,transparent)}.kit-nav .kit-nav-btn svg{width:15px;height:15px;flex:none}.kit-nav-compact{justify-content:flex-end}@media(max-width:640px){.kit-nav{width:100%;justify-content:stretch;gap:7px}.kit-nav .kit-nav-btn{flex:1;min-height:44px;padding:9px 10px;font-size:12px}.kit-nav-compact{width:auto;flex:0 0 auto}.kit-nav-compact .kit-nav-btn{flex:0 0 auto;min-height:40px;padding:8px 12px}}@media(prefers-reduced-motion:reduce){.kit-nav .kit-nav-btn{transition:none}}`;
+const KIT_NAV_CSS = `.kit-nav{display:inline-flex;align-items:center;min-width:0;margin-left:auto;border:1px solid color-mix(in srgb,var(--dsw-alias-label-primary) 10%,transparent);border-radius:11px;background:var(--dsw-alias-bg-base)}.kit-nav .kit-nav-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 13px;border:0;border-radius:10px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:12px;font-weight:600;line-height:1;white-space:nowrap;cursor:pointer;transition:background-color .15s}.kit-nav .kit-nav-btn:hover{background:color-mix(in srgb,var(--dsw-alias-label-primary) 5%,transparent)}.kit-nav .kit-nav-btn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px}.kit-nav .kit-nav-btn svg{width:15px;height:15px;flex:none;opacity:.82}.kit-nav-compact{justify-content:flex-end}@media(max-width:640px){.kit-nav{width:auto;justify-content:flex-end}.kit-nav .kit-nav-btn{min-height:38px;padding:0 12px}}@media(prefers-reduced-motion:reduce){.kit-nav .kit-nav-btn{transition:none}}`;
 
 function KitChatIcon() {
   return h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
@@ -57,15 +104,9 @@ function KitChatIcon() {
     h('path', { d: 'M8 8h8M8 11h5' }));
 }
 
-function KitHomeIcon() {
-  return h('svg', { viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
-    h('path', { d: 'M4 10.5 12 4l8 6.5V20h-5v-5H9v5H4z' }));
-}
-
-function KitNavActions({ chat, home, compact = false, primary = 'home' }) {
+function KitNavActions({ chat, compact = false }) {
   return h(React.Fragment, null,
     h('style', null, KIT_NAV_CSS),
     h('div', { className: 'kit-nav' + (compact ? ' kit-nav-compact' : ''), role: 'group', 'aria-label': '页面导航' },
-      chat ? h('button', { type: 'button', className: 'kit-nav-btn' + (primary === 'chat' ? ' kit-nav-btn-primary' : ''), onClick: chat, 'aria-label': '返回会话' }, h(KitChatIcon), h('span', null, '返回会话')) : null,
-      home ? h('button', { type: 'button', className: 'kit-nav-btn' + (primary !== 'chat' ? ' kit-nav-btn-primary' : ''), onClick: home, 'aria-label': '返回首页' }, h(KitHomeIcon), h('span', null, '返回首页')) : null));
+      h('button', { type: 'button', className: 'kit-nav-btn', onClick: chat, 'aria-label': '返回会话' }, h(KitChatIcon), h('span', null, '返回会话'))));
 }

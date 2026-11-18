@@ -10,6 +10,8 @@
 
 2026-11-07 的入口解耦仅改客户端装配层，保留面板 key、Host 条目、API 与全部数据；验证记录见[音乐](features/music.md)。
 
+2026-11-18 起小爱入口再拆为「小爱音乐」「小爱控制」两个独立页面，见[小爱音乐与小爱控制](features/xiaoai.md)；以下仍为迁移时记录。
+
 业务设计和完整 API 分别见[音乐](features/music.md)、[小爱音箱](features/xiaoai.md)，实际 DSH 路由和共享工具见[架构](architecture.md)。
 
 ## 数据处理
