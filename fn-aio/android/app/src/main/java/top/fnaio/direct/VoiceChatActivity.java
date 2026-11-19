@@ -14,6 +14,7 @@ import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowInsets;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -26,6 +27,7 @@ import android.widget.ImageView;
 import android.widget.HorizontalScrollView;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.webkit.CookieManager;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceRequest;
@@ -65,6 +67,9 @@ public final class VoiceChatActivity extends Activity {
     private EditText composer;
     private Button sendButton;
     private int epoch=0;
+    private int chatViewHeight=-1;
+    private boolean chatScrollWatching=false, atChatBottom=true;
+    private boolean initialFocusPending=true;
     private static final int MAX_PENDING_IMAGES=6;
     private static final int MAX_PENDING_FILES=6;
     private static final long MAX_FILE_BYTES=64L*1024*1024;
@@ -102,7 +107,8 @@ public final class VoiceChatActivity extends Activity {
         java.io.File[] oldDrafts=getCacheDir().listFiles((dir,name)->name.startsWith("chat-draft-")&&name.endsWith(".jpg")||name.startsWith("chat-file-")&&name.endsWith(".bin"));
         if(oldDrafts!=null)for(java.io.File file:oldDrafts)if(System.currentTimeMillis()-file.lastModified()>24*60*60*1000L)file.delete();
         if(base.isEmpty()){ hint.setText("请先设置聊天服务地址"); if(state==null) hint.post(this::settings); return; }
-        if(sessionId.isEmpty()) chooseSession(); else loadLocalMessages();
+        if(state==null)focusComposer();
+        if(sessionId.isEmpty()) chooseSession(); else {loadLocalMessages();scrollToLatest();}
     }
     /** 早期版本把聊天地址存在快捷控制页；升级后一次性搬运，保留已选会话与本地记录。 */
     private void migrateLegacyPrefs(){
@@ -142,8 +148,61 @@ public final class VoiceChatActivity extends Activity {
         sendButton=button("发送 ↑",true);sendButton.setOnClickListener(v->sendText());tools.addView(sendButton,new LinearLayout.LayoutParams(dp(80),dp(44)));panel.addView(tools);
         root.setFocusableInTouchMode(true);setContentView(root);
     }
+    // 进入聊天即可直接打字：首次打开自动聚焦输入框并弹出键盘，旋转/重建时不重复弹。
+    private void focusComposer(){
+        composer.requestFocus();
+        composer.setSelection(composer.getText().length());
+        // 先布好布局（键盘 adjustResize 收缩聊天区）后再请求键盘，避免键盘盖住输入区。
+        composer.postDelayed(()->{
+            initialFocusPending=false;
+            if(composer.hasFocus())showKeyboard();else composer.requestFocus();
+        },180);
+    }
     private Button button(String text,boolean filled){Button b=new Button(this);b.setText(text);b.setTextSize(14);b.setAllCaps(false);b.setTextColor(filled?Color.WHITE:TEAL);b.setBackground(bg(filled?TEAL:Color.TRANSPARENT,14));b.setElevation(0);b.setStateListAnimator(null);b.setMinWidth(0);b.setMinimumWidth(0);b.setMinHeight(0);b.setMinimumHeight(0);b.setPadding(dp(8),0,dp(8),0);return b;}
     private String cleanTitle(String text){return text==null||text.trim().equalsIgnoreCase("null")?"":text.trim();}
+    /** 对话记录滑到最底部：进入、键盘/布局高度变化和最后一条气泡异步渲染完成时各对齐一次。 */
+    private void scrollToLatest(){
+        scrollChatToBottom();
+        if(!chatScrollWatching){
+            chatScrollWatching=true;
+            final ScrollView sc=(ScrollView)messages.getParent();
+            // 记录是否停在底部：用户向上翻看旧消息时不要被新内容拽回去。
+            sc.setOnScrollChangeListener((v,x,y,oldX,oldY)->atChatBottom=nearChatBottom());
+            sc.addOnLayoutChangeListener((v,left,top,right,bottom,oldLeft,oldTop,oldRight,oldBottom)->{
+                if(bottom-top!=chatViewHeight){
+                    chatViewHeight=bottom-top;
+                    if(atChatBottom)v.post(this::scrollChatToBottom);
+                }
+            });
+        }
+        if(messages.getChildCount()>0)messages.getChildAt(messages.getChildCount()-1).post(this::scrollChatToBottom);
+    }
+    /** 只用 scrollTo 到底：ScrollView.fullScroll 会 requestFocus，把输入框的焦点抢走（输入法随之收起）。 */
+    private void scrollChatToBottom(){
+        ScrollView sc=(ScrollView)messages.getParent();
+        sc.post(()->{
+            View child=sc.getChildAt(0);
+            if(child==null)return;
+            sc.scrollTo(0,Math.max(0,child.getMeasuredHeight()+sc.getPaddingBottom()-sc.getHeight()));
+        });
+    }
+    private boolean nearChatBottom(){
+        ScrollView sc=(ScrollView)messages.getParent();
+        View child=sc.getChildAt(0);
+        if(child==null)return true;
+        int bottom=child.getMeasuredHeight()+sc.getPaddingBottom();
+        return bottom-sc.getHeight()-sc.getScrollY()<=dp(64);
+    }
+    /** 从相册/相机/文件选择器返回后把焦点和键盘还给输入框，接着就能打字。 */
+    private void restoreComposerFocus(){
+        composer.postDelayed(()->{
+            if(isFinishing()||isDestroyed())return;
+            composer.requestFocus();
+            composer.setSelection(composer.getText().length());
+            showKeyboard();
+        },150);
+    }
+    private void showKeyboard(){InputMethodManager ime=(InputMethodManager)getSystemService(INPUT_METHOD_SERVICE);if(ime!=null)ime.showSoftInput(composer,InputMethodManager.SHOW_IMPLICIT);}
     private void settings(){
         LinearLayout form=new LinearLayout(this);form.setOrientation(LinearLayout.VERTICAL);form.setPadding(dp(20),dp(8),dp(20),0);
         EditText lan=new EditText(this);lan.setSingleLine(true);lan.setTextSize(15);lan.setTextColor(INK);lan.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_URI);lan.setHint("局域网 HTTPS 地址，如 https://192.168.1.2/dsh/");lan.setText(prefs.getString("lan",""));form.addView(lan);
@@ -258,13 +317,22 @@ public final class VoiceChatActivity extends Activity {
     private void addBubble(String value,boolean mine,JSONArray images,JSONArray files){
         LinearLayout bubble=new LinearLayout(this);bubble.setOrientation(LinearLayout.VERTICAL);bubble.setPadding(dp(12),dp(10),dp(12),dp(10));bubble.setBackground(bg(mine?0xFFDDEFEA:Color.WHITE,18));
         int maxWidth=Math.min(dp(320),(int)(getResources().getDisplayMetrics().widthPixels*.78));
-        if(images!=null)for(int i=0;i<images.length();i++)try{byte[] bytes=android.util.Base64.decode(images.getString(i),android.util.Base64.NO_WRAP);Bitmap bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.length);if(bitmap==null)continue;ImageView image=new ImageView(this);image.setImageBitmap(bitmap);image.setAdjustViewBounds(true);image.setMaxWidth(maxWidth-dp(24));image.setMaxHeight(dp(240));image.setScaleType(ImageView.ScaleType.FIT_CENTER);image.setContentDescription("已发送的图片 "+(i+1));LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(-2,-2);ip.bottomMargin=dp(6);bubble.addView(image,ip);}catch(Exception ignored){}
+        // 图片按位图自身宽高比算出固定尺寸并自绘整张图：不再用 ImageView 的 adjustViewBounds/maxHeight 测量，
+        // 那条路径会按宽度放大后把超出气泡的部分裁掉，竖长截图的下半部分因此丢失。点一下可看全屏大图。
+        int imageMaxWidth=maxWidth-dp(24);
+        int imageMaxHeight=Math.min(dp(520),(int)(getResources().getDisplayMetrics().heightPixels*.68));
+        if(images!=null)for(int i=0;i<images.length();i++)try{byte[] bytes=android.util.Base64.decode(images.getString(i),android.util.Base64.NO_WRAP);Bitmap bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.length);if(bitmap==null)continue;
+            float ratio=bitmap.getWidth()/(float)bitmap.getHeight();
+            int width=imageMaxWidth,height=Math.max(1,Math.round(imageMaxWidth/ratio));
+            if(height>imageMaxHeight){height=imageMaxHeight;width=Math.max(1,Math.round(height*ratio));}
+            if(width<dp(190)){width=Math.min(dp(190),imageMaxWidth);height=Math.max(1,Math.round(width/ratio));}
+            bubble.addView(fitImageView(bitmap,width,height,images.length()>1?i+1:0));}catch(Exception ignored){}
         if(files!=null)for(int i=0;i<files.length();i++){JSONObject file=files.optJSONObject(i);if(file==null)continue;LinearLayout row=fileRow(file.optString("name","文件"),file.optLong("bytes",0));LinearLayout.LayoutParams fp=new LinearLayout.LayoutParams(Math.min(maxWidth-dp(24),dp(240)),-2);fp.bottomMargin=dp(6);bubble.addView(row,fp);}
         if(!value.isEmpty()){
             if(mine){TextView t=label(value,16,INK);t.setMaxWidth(maxWidth-dp(24));t.setTextIsSelectable(true);t.setLineSpacing(dp(3),1);bubble.addView(t);}
             else ChatMarkdownRenderer.render(this,bubble,value,INK,MUTED,TEAL,maxWidth-dp(24));
         }
-        LinearLayout row=new LinearLayout(this);row.setGravity(mine?Gravity.END:Gravity.START);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.setMargins(0,dp(5),0,dp(5));messages.addView(row,p);row.addView(bubble,new LinearLayout.LayoutParams(-2,-2));((ScrollView)messages.getParent()).post(()->((ScrollView)messages.getParent()).fullScroll(View.FOCUS_DOWN));
+        LinearLayout row=new LinearLayout(this);row.setGravity(mine?Gravity.END:Gravity.START);LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.setMargins(0,dp(5),0,dp(5));messages.addView(row,p);row.addView(bubble,new LinearLayout.LayoutParams(-2,-2));if(atChatBottom)scrollChatToBottom();
     }
     private void sendText(){String s=composer.getText().toString().trim();if(importing>0||importingFiles>0){hint.setText("附件处理中，请稍候再发送");return;}if(!s.isEmpty()||!pendingImages.isEmpty()||!pendingFiles.isEmpty())sendPrompt(s,new ArrayList<>(pendingImages),new ArrayList<>(pendingFiles));}
     private void sendPrompt(String text,ArrayList<byte[]> images,ArrayList<PendingFile> files){
@@ -390,7 +458,33 @@ public final class VoiceChatActivity extends Activity {
         new AlertDialog.Builder(this).setTitle("处理待收记录").setMessage("清除仅停止本机补收，不撤回已发消息，也不会自动重发。发送结果不明确时，请先到 DSH 确认是否已记录，避免重复记录。")
             .setPositiveButton("继续补收",(d,w)->resumePending()).setNeutralButton("清除待收",(d,w)->{waitGeneration++;if(waitConnection!=null)waitConnection.disconnect();if(prefs.edit().remove(pendingKey(sessionId)).commit())hint.setText("已停止补收；服务端消息未删除");}).setNegativeButton("取消",null).show();
     }
-    private String thumbnail(byte[] bytes){Bitmap bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.length);if(bitmap==null)return "";int edge=Math.max(bitmap.getWidth(),bitmap.getHeight());if(edge>480){float scale=480f/edge;Bitmap small=Bitmap.createScaledBitmap(bitmap,Math.max(1,Math.round(bitmap.getWidth()*scale)),Math.max(1,Math.round(bitmap.getHeight()*scale)),true);if(small!=bitmap)bitmap.recycle();bitmap=small;}ByteArrayOutputStream out=new ByteArrayOutputStream();bitmap.compress(Bitmap.CompressFormat.JPEG,65,out);bitmap.recycle();return android.util.Base64.encodeToString(out.toByteArray(),android.util.Base64.NO_WRAP);}
+    private String thumbnail(byte[] bytes){Bitmap bitmap=BitmapFactory.decodeByteArray(bytes,0,bytes.length);if(bitmap==null)return "";int edge=Math.max(bitmap.getWidth(),bitmap.getHeight());if(edge>720){float scale=720f/edge;Bitmap small=Bitmap.createScaledBitmap(bitmap,Math.max(1,Math.round(bitmap.getWidth()*scale)),Math.max(1,Math.round(bitmap.getHeight()*scale)),true);if(small!=bitmap)bitmap.recycle();bitmap=small;}ByteArrayOutputStream out=new ByteArrayOutputStream();bitmap.compress(Bitmap.CompressFormat.JPEG,65,out);bitmap.recycle();return android.util.Base64.encodeToString(out.toByteArray(),android.util.Base64.NO_WRAP);}
+    /** 按给定尺寸完整绘制整张位图，避免 ImageView 测量路径把长图底部裁掉。 */
+    private View fitImageView(final Bitmap bitmap,int width,int height,int index){
+        View view=new View(this){
+            @Override protected void onDraw(Canvas canvas){
+                float scale=Math.min(getWidth()/(float)bitmap.getWidth(),getHeight()/(float)bitmap.getHeight());
+                float dx=(getWidth()-bitmap.getWidth()*scale)/2f,dy=(getHeight()-bitmap.getHeight()*scale)/2f;
+                canvas.save();canvas.translate(dx,dy);canvas.scale(scale,scale);canvas.drawBitmap(bitmap,0,0,null);canvas.restore();
+            }
+        };
+        view.setContentDescription(index>0?"已发送的图片，第 "+index+" 张，点按查看大图":"已发送的图片，点按查看大图");
+        view.setOnClickListener(v->showImageFull(bitmap));
+        LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(width,height);params.bottomMargin=dp(6);
+        view.setLayoutParams(params);
+        return view;
+    }
+    /** 轻点气泡里的图片看大图：深色全屏、保持比例，点任意处关闭。 */
+    private void showImageFull(Bitmap bitmap){
+        FrameLayout frame=new FrameLayout(this);frame.setBackgroundColor(0xFF0E1614);
+        ImageView view=new ImageView(this);view.setImageBitmap(bitmap);view.setScaleType(ImageView.ScaleType.FIT_CENTER);view.setPadding(dp(8),dp(8),dp(8),dp(8));
+        frame.addView(view,new FrameLayout.LayoutParams(-1,-1,Gravity.CENTER));
+        TextView tip=label("轻点关闭",12,0x99FFFFFF);tip.setGravity(Gravity.CENTER);tip.setPadding(0,0,0,dp(24));
+        frame.addView(tip,new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM));
+        android.app.Dialog dialog=new android.app.Dialog(this,android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+        frame.setOnClickListener(v->dialog.dismiss());
+        dialog.setContentView(frame);dialog.show();
+    }
     private LinearLayout fileRow(String name,long bytes){
         LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(10),dp(8),dp(10),dp(8));row.setBackground(bg(0xFFEAF2EF,12));
         TextView badge=label("文件",10,TEAL);badge.setTypeface(null,Typeface.BOLD);badge.setPadding(dp(6),dp(2),dp(6),dp(2));badge.setBackground(bg(0xFFD3E7E1,8));row.addView(badge);
@@ -448,8 +542,13 @@ public final class VoiceChatActivity extends Activity {
         options.inJustDecodeBounds=false;options.inSampleSize=sample;
         try(InputStream in=getContentResolver().openInputStream(uri)){return encodeImage(BitmapFactory.decodeStream(in,null,options));}
     }
+    @Override public void onWindowFocusChanged(boolean hasFocus){
+        super.onWindowFocusChanged(hasFocus);
+        if(hasFocus&&initialFocusPending){initialFocusPending=false;composer.requestFocus();showKeyboard();}
+    }
     @Override protected void onActivityResult(int request,int result,Intent data){
-        super.onActivityResult(request,result,data);if(result!=RESULT_OK||data==null)return;if(request==33){handlePickedFiles(data);return;}if(request!=31&&request!=32)return;
+        super.onActivityResult(request,result,data);if(result!=RESULT_OK||data==null)return;if(request==33){handlePickedFiles(data);restoreComposerFocus();return;}if(request!=31&&request!=32)return;
+        restoreComposerFocus();
         ArrayList<Uri> uris=new ArrayList<>();Bitmap camera=null;
         if(request==31){if(data.getClipData()!=null){for(int i=0;i<Math.min(data.getClipData().getItemCount(),MAX_PENDING_IMAGES);i++)uris.add(data.getClipData().getItemAt(i).getUri());}else if(data.getData()!=null)uris.add(data.getData());}
         else if(data.getExtras()!=null){Object value=data.getExtras().get("data");if(value instanceof Bitmap)camera=(Bitmap)value;}
