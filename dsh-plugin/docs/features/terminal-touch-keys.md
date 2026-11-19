@@ -6,7 +6,7 @@
 
 ## 接入与兼容决定
 
-实查当前0.2.2-rc.1终端只有body/title注册，没有按键栏扩展槽。为避免替换整套终端或读取其他组件DOM，先用bridge.mjs给已安装的内置Client产物增加一个子Slot：`local.terminal.touch.keys`（list/session），owner props是`enabled:boolean`及`sendKey(key):boolean`。最初六种键名是left/up/down/right/escape/interrupt；2026-11-08在明确授权后扩展为八种，新增tab/vimQuit，不允许任意字符串写入。升级适配、备份与回滚见[终端桥升级手册](../terminal-bridge-upgrade.md)。
+实查当前0.2.2-rc.5终端只有body/title注册，没有按键栏扩展槽；2026-11-20升级后已按新压缩产物重锚并重新应用，槽位与键名不变。为避免替换整套终端或读取其他组件DOM，先用bridge.mjs给已安装的内置Client产物增加一个子Slot：`local.terminal.touch.keys`（list/session），owner props是`enabled:boolean`及`sendKey(key):boolean`。最初六种键名是left/up/down/right/escape/interrupt；2026-11-08在明确授权后扩展为八种，新增tab/vimQuit，不允许任意字符串写入。升级适配、备份与回滚见[终端桥升级手册](../terminal-bridge-upgrade.md)。
 
 桥保留原xterm与model的生命周期，方向键依据application cursor mode使用CSI/SS3，控制键走原xterm.input→onData→model.write。断开、隐藏、只读、进程结束时禁止发送，也不自动夺取输入权。纯用户终端键盘不开放为Agent工具，以免绕过Agent命令审批。
 

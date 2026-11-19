@@ -11,13 +11,16 @@ if(pkg.name!=='@deepseek-ai/dsh-client-ui-sidebar-terminal')throw Error('Not the
 const backupDir=new URL('../../.local/terminal-touch-bridge/',import.meta.url);
 const hash=value=>createHash('sha256').update(value).digest('hex');
 const slot='local.terminal.touch.keys';
+// Anchors match the minified 0.2.2-rc.5 artifacts (no spaces after commas, template literals).
+// Declare only a new child seat; leave original body registration and all lifecycle owners intact.
+const children='children:{"'+slot+'":{kind:`list`,scope:`session`}}';
 const replacements={
- 'client.js':[[ '}, LazyTerminalBody)), "ui-sidebar-terminal.body");', '}, LazyTerminalBody)), "ui-sidebar-terminal.body");' ]],
+ 'client.js':[['name:`sidebar.right.pane.tab`,key:id,locale:namespace','name:`sidebar.right.pane.tab`,'+children+',key:id,locale:namespace']],
  'client.terminal.js':[
-  ['function TerminalBody({ useTabInfo, useTerminal, useTheme, view, t }) {','function TerminalBody({ useTabInfo, useTerminal, useTheme, view, t, renderSlot }) {'],
-  ['\t\t\t\t\t\tvisible: tab.visible,','\t\t\t\t\t\trenderSlot,\n\t\t\t\t\t\tvisible: tab.visible,'],
-  ['function TerminalScreen({ state, model, visible, label, theme }) {','function TerminalScreen({ state, model, visible, label, theme, renderSlot }) {'],
-  ['return (0, react_jsx_runtime.jsx)("div", {\n\t\t\t\tclassName: terminal_module_css_default.screen,\n\t\t\t\tref: element\n\t\t\t});',`return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, {children: [
+  ['function TerminalBody({useTabInfo,useTerminal,useTheme,view,t})','function TerminalBody({useTabInfo,useTerminal,useTheme,view,t,renderSlot})'],
+  ['state,model,visible:tab.visible,label:t(`title`),theme','state,model,visible:tab.visible,label:t(`title`),theme,renderSlot'],
+  ['function TerminalScreen({state,model,visible,label,theme})','function TerminalScreen({state,model,visible,label,theme,renderSlot})'],
+  ['return(0,react_jsx_runtime.jsx)(`div`,{className:terminal_module_css_default.screen,ref:element})',`return (0, react_jsx_runtime.jsxs)(react_jsx_runtime.Fragment, {children: [
                 (0, react_jsx_runtime.jsx)("div", {className: terminal_module_css_default.screen, ref: element}),
                 renderSlot?.("${slot}", {
                     enabled: visible && state.writable && state.phase === "connected" && state.info?.state === "running",
@@ -35,8 +38,6 @@ const replacements={
             ]});`]
  ]
 };
-// Declare only a new child seat; leave original body registration and all lifecycle owners intact.
-replacements['client.js']=[['name: "sidebar.right.pane.tab",\n\t\t\t\tkey: id,',`name: "sidebar.right.pane.tab",\n                children: {"${slot}": {kind:"list",scope:"session"}},\n\t\t\t\tkey: id,`]];
 function replaceOnce(source,from,to,name){
  if(source.split(from).length!==2)throw Error('Unsupported DSH terminal artifact: '+name+'; stop and inspect the new version');
  return source.replace(from,to);
@@ -80,7 +81,7 @@ for(const [name,pairs] of Object.entries(replacements)){
    if(!original.includes(extended))updated=replaceOnce(original,legacy,extended,name);
    // Refuse a partial or foreign bridge even when the slot name exists.
    for(const guard of ['const live=current.current;','!live.state.writable','live.state.phase!=="connected"','live.state.info?.state!=="running"','xterm.input(data,true);'])if(!updated.includes(guard))throw Error('Unknown bridge implementation: '+guard);
-  }else if(!original.includes('children: {"'+slot+'": {kind:"list",scope:"session"}}'))throw Error('Unknown slot declaration');
+  }else if(!original.includes(children))throw Error('Unknown slot declaration');
  }else{
   for(const [from,to] of pairs)updated=replaceOnce(updated,from,to,name);
  }

@@ -25,7 +25,7 @@
 /home/xuekai/.npm/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh-client-ui-sidebar-terminal
 ```
 
-确认目标 `package.json` 的 name 为 `@deepseek-ai/dsh-client-ui-sidebar-terminal`，记录版本；本次为 `0.2.2-rc.1`。检查新版两个产物：原有的 TerminalBody/TerminalScreen、renderSlot 传递、当前状态 ref、xterm.input 和按键生命周期是否仍匹配。优先查询上游是否已有正式扩展接口，有则考虑迁移，不继续堆补丁。
+确认目标 `package.json` 的 name 为 `@deepseek-ai/dsh-client-ui-sidebar-terminal`，记录版本；本次为 `0.2.2-rc.5`（2026-11-20 复核；此前 rc.1 的锚点已失效，脚本现以 rc.5 的压缩形状为准，详见文末记录）。检查新版两个产物：原有的 TerminalBody/TerminalScreen、renderSlot 传递、当前状态 ref、xterm.input 和按键生命周期是否仍匹配。优先查询上游是否已有正式扩展接口，有则考虑迁移，不继续堆补丁。
 
 ### 2. 只检查，不写入
 
@@ -99,3 +99,15 @@ node features/terminal-touch-keys/bridge.mjs "${TERMINAL_PACKAGE:?}" --rollback 
 - 遵循最新AGENTS，缓存修复后未运行浏览器验证；不把applied当作实际Tab已恢复。
 - 最终用户明确反馈“那个按键我测试没问题了”，按键功能通过用户实际验收。此前记录的自动化布局覆盖限制仍保留，不扩展为所有设备/软键盘均已验收。
 - 升级后仅在用户主动要求时重新适配；终端按键与token登录分别授权，不因升级或失效自动重打补丁。
+
+## 2026-11-20 0.2.2-rc.5 升级适配记录
+
+用户明确要求两项宿主适配后执行。未改其他内置插件、会话机制、终端 controller 或 profile 依赖。
+
+- 实际运行路径仍是 `/home/xuekai/.npm/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh-client-ui-sidebar-terminal`，版本 `0.2.2-rc.5`。rc.5 产物改为无空格压缩并用模板字符串，旧锚点直接报 `Unsupported DSH terminal artifact`。
+- 脚本锚点改为 rc.5 形状：`TerminalBody`/`TerminalScreen` 签名、`TerminalScreen` 调用点、`return(0,react_jsx_runtime.jsx)(\`div\`,...)`，以及入口 `name:\`sidebar.right.pane.tab\`,key:id,locale:namespace`。槽位仍为 `local.terminal.touch.keys`（list/session），八键白名单与 `sendKey` 逻辑未改；rc.5 仍未提供原生 `renderSlot`，所以继续用兼容桥。
+- 先在临时副本试打并确认可重复执行（第二次为 already current），再对真实路径 `--apply`。
+- 回滚 manifest：`.local/terminal-touch-bridge/manifest-1795105682758.json`。补丁后 SHA256：`client.js` 为 `15b77fe3304937da245bbc1d97c4c032262f673604b5f1babc9ab988fe2c9906`，`client.terminal.js` 为 `f813d7d197c6bff982daa38f4c8108a0f757ebc7ff22843736ae78ce8240fb44`；两个文件 `node --check` 通过。
+- 入口已带分块 SHA256 标记；`include:ui-sidebar-terminal` 先禁用再启用均返回 applied、warnings=[]。未重启 DSH、未结束 PTY。
+- 本次未做浏览器验收，也未向真实终端发送 Tab/`:q`。脚本、语法检查和 applied 都不等于实页可用；需用户刷新原 GUI 后在安全会话确认按键栏、Tab 补全与 `:q`。
+- 仅把 `bridge.test.js` 的 fixture 槽位声明同步为 rc.5 压缩格式，未改断言；按用户要求未运行测试套件。

@@ -11,7 +11,7 @@ async function fixture(){
  const root=await mkdtemp(join(tmpdir(),'terminal-bridge-test-')),base=join(root,'native'),file=join(root,'features/terminal-touch-keys/bridge.mjs');
  await mkdir(join(root,'features/terminal-touch-keys'),{recursive:true});await mkdir(join(base,'lib'),{recursive:true});
  await writeFile(file,script);await writeFile(join(base,'package.json'),JSON.stringify({name:'@deepseek-ai/dsh-client-ui-sidebar-terminal',version:'fixture'}));
- await writeFile(join(base,'lib/client.js'),'const slot={children: {"local.terminal.touch.keys": {kind:"list",scope:"session"}}};');
+ await writeFile(join(base,'lib/client.js'),'const slot={children:{"local.terminal.touch.keys":{kind:`list`,scope:`session`}}};');
  const original='// local.terminal.touch.keys\nfunction send(key){const live=current.current;const xterm=terminal.current;if(!xterm||!live.state.writable||live.state.phase!=="connected"||live.state.info?.state!=="running")return false;const arrows={};'+legacy+'xterm.input(data,true);}';
  const artifact=join(base,'lib/client.terminal.js');await writeFile(artifact,original);
  const run=(...args)=>spawnSync(process.execPath,[file,base,...args],{encoding:'utf8'});

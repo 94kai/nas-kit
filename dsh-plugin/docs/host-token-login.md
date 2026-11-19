@@ -4,7 +4,7 @@
 
 2026-11-08 用户明确授权修改本机 DSH 宿主鉴权产物；此功能不属于工具箱插件，未登录时插件尚未加载。只改 `@deepseek-ai/dsh-client-connection` 的 `lib/index.js`，不新增安装包或路由，不自动重启服务。
 
-当前目标：`/home/xuekai/.npm/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh-client-connection/lib/index.js`。npm/npx 升级、重装或换运行目录后补丁视为丢失，不能跨版本盲目套用；升级后的适配需用户再次明确授权。
+当前目标：`/home/xuekai/.npm/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh-client-connection/lib/index.js`。npm/npx 升级、重装或换运行目录后补丁视为丢失，不能跨版本盲目套用；升级后的适配需用户再次明确授权。2026-11-20 已在 `0.2.2-rc.5` 上按本文重打，补丁内容无需改动，详见文末记录。
 
 ## 为什么需要它
 
@@ -111,3 +111,12 @@ node --check "$TARGET"
 ```
 
 然后用原方式重启同一个 DSH，确认恢复升级后的原始行为。**不要用旧 npx 目录的备份覆盖新版**；回滚不会清除已有 Cookie。
+
+## 2026-11-20 0.2.2-rc.5 升级适配记录
+
+- 用户明确要求两项宿主适配后执行。实际目标仍是 `/home/xuekai/.npm/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh-client-connection/lib/index.js`，版本 `0.2.2-rc.5`。
+- 先用 `patch --dry-run --fuzz=0` 验证旧补丁对新版可干净应用；`BrowserAuth`、`authorizeIndex`、`writeUnauthorized` 结构未变，补丁内容未改。
+- 备份：同目录 `lib/index.js.before-token-login-20261120-0024`（原文件 SHA256 `0ebcca7583e082716f79b0b55bc1749d48269cc8db2989b043b321b57abd3684`）。补丁后 SHA256 `7a976f00afb7b973f2bd88623f6cc85abf2e48dabf0b15c665f41afe0fced348`，`node --check` 通过。
+- `scripts/host-login-script-check.mjs` 对补丁后文件全部通过：自动进入、401 回退、空输入、错误 token 加有效会话、正确 token、粘贴链接、标记伪造、断网、导航不含 token、不使用 Web Storage。
+- **未重启 DSH**，补丁尚未在运行中的进程生效。冷启动是否直达首页、登录页与手机安装版自动进入，需重启后实测；未验收，不宣称已恢复。
+- 回滚：把上述备份复制回目标并以原方式重启。不要用旧 npx 目录的备份覆盖新版。
