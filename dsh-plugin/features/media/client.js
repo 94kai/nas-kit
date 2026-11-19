@@ -78,6 +78,14 @@ window.__ModuleLoader__.load({
 .pk-media .pk-search>button{flex:none;width:auto;min-width:76px;min-height:44px;padding:0 16px;margin:0}
 .pk-media .pk-search-result-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:10px 0 0}
 @media(max-width:640px){.pk-media .pk-track-actions .pk-icon-btn{width:38px;height:44px;min-width:38px;font-size:14px}.pk-media .pk-now-art{width:46px;height:46px;border-radius:10px;font-size:20px}.pk-media .pk-tabs{display:flex;flex-wrap:nowrap;gap:6px;overflow:visible}.pk-media .pk-tabs>*{flex:1 1 0;min-width:0}.pk-media .pk-tabs button{width:auto;min-width:0;font-size:13px;padding:6px 2px;white-space:nowrap}.pk-media .pk-modes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.pk-media .pk-modes button{width:100%;font-size:12px;padding:6px 2px;white-space:nowrap;min-height:44px}}
+.pk-media .pk-playlist-picker{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px}
+.pk-media .pk-playlist-picker button{max-width:100%;min-height:40px;padding:6px 12px;border-radius:999px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pk-media .pk-playlist-picker button[aria-pressed=true]{background:var(--dsw-alias-brand-primary);border-color:transparent;color:var(--dsw-alias-bg-base,#fff)}
+.pk-media .pk-playlist-create{margin-top:10px;padding:12px;border:1px dashed var(--dsw-alias-border-l2);border-radius:10px}
+.pk-media .pk-xiaoai-playlists .pk-playlist-detail{margin-top:12px;padding-top:12px;border-top:1px solid var(--dsw-alias-border-l2)}
+.pk-media .pk-xiaoai-playlists .pk-search{margin:10px 0 0}
+.pk-media .pk-xiaoai-playlists h3{margin:14px 0 0}
+@media(max-width:640px){.pk-media .pk-library-tabs button{font-size:12px;padding:6px 0}.pk-media .pk-playlist-picker button{min-height:44px}}
 `;
     function useApi(feature) {
       const active = React.useRef(true), controllers = React.useRef(new Set());

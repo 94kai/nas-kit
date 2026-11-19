@@ -362,6 +362,18 @@ export class XiaoAiMusicModule {
       const payload = await body(req);
       json(res, 200, await this.playList(profile, this.playlist(profile), payload.path, payload.mode)); return true;
     }
+    if (action === 'playlists/play' && req.method === 'POST') {
+      // 与搜索/喜欢一致：清空播放列表，再填入该曲及其后的歌单歌曲。
+      const payload = await body(req);
+      const list = (this.automation.data.playlists || []).find(item => item.profileId === profile.id && item.id === String(payload.playlistId || ''));
+      if (!list) throw httpError('歌单不存在，请刷新后重试', 404);
+      if (!list.songs.length) throw httpError('歌单为空', 400);
+      const start = payload.path ? list.songs.findIndex(song => song.path === String(payload.path)) : 0;
+      if (start < 0) throw httpError('歌曲已不在歌单中，请刷新后重试', 409);
+      const target = []; this.addSongs(target, list.songs.slice(start), profile);
+      this.library.playlists[profile.id] = target; await this.saveLibrary();
+      json(res, 200, await this.playList(profile, target, target[0]?.path, payload.mode)); return true;
+    }
     if (action === 'playlist/mode' && req.method === 'POST') {
       const payload = await body(req);
       const mode = this.playMode(payload.mode);

@@ -102,13 +102,13 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
     const [loading, setLoading] = React.useState(true), [collectionState, setCollection] = React.useState({ profileId: '', ready: false, playlist: [], favorites: [] });
     const [libraryTab, setLibraryTab] = React.useState('playlist'), [query, setQuery] = React.useState(''), [hits, setHits] = React.useState([]), [searched, setSearched] = React.useState(false), [searchedKeyword, setSearchedKeyword] = React.useState('');
     const [playMode, setPlayMode] = React.useState('sequence'), [volume, setVolume] = React.useState(30);
-    const [configDraft, setConfigDraft] = React.useState(null), [automation, setAutomation] = React.useState(null), [autoId, setAutoId] = React.useState('');
-    const [autoName, setAutoName] = React.useState(''), [autoQuery, setAutoQuery] = React.useState(''), [autoHits, setAutoHits] = React.useState([]), [rule, setRule] = React.useState(blankRule);
+    const [configDraft, setConfigDraft] = React.useState(null), [automation, setAutomation] = React.useState(null), [listId, setListId] = React.useState('');
+    const [listName, setListName] = React.useState(''), [listQuery, setListQuery] = React.useState(''), [listHits, setListHits] = React.useState([]), [rule, setRule] = React.useState(blankRule);
     const [assistant, setAssistant] = React.useState({ controls: [], history: {} }), [mode, setMode] = React.useState('speak'), [text, setText] = React.useState(''), [controlDraft, setControlDraft] = React.useState(null), [silent, setSilent] = React.useState(false);
     const [fnos, setFnos] = React.useState({configured:false,connected:false}), [nasOrigin, setNasOrigin] = React.useState(''), [authorizationUrl, setAuthorizationUrl] = React.useState('');
     const [serviceOpen, setServiceOpen] = React.useState(false);
     const servicePanelId = React.useId(), configFormId = React.useId();
-    const [autoView, setAutoView] = React.useState('rules'), [ruleOpen, setRuleOpen] = React.useState(false), [ruleTrigger, setRuleTrigger] = React.useState('time'), [createListOpen, setCreateListOpen] = React.useState(false);
+    const [ruleOpen, setRuleOpen] = React.useState(false), [ruleTrigger, setRuleTrigger] = React.useState('time'), [createListOpen, setCreateListOpen] = React.useState(false);
     const [refreshPending, setRefreshPending] = React.useState([]);
     const refreshLocks = React.useRef(new Set());
     const selectedRef = React.useRef(selected), profileSerial = React.useRef(0), active = React.useRef(true);
@@ -172,7 +172,7 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
       return () => { active.current = false; clearInterval(timer); ++profileSerial.current; collectionGate.current.invalidate(''); ++assistantSerial.current; ++automationSerial.current; };
     }, []);
     React.useEffect(() => {
-      setHits([]); setSearched(false); setSearchedKeyword(''); invalidateCollection(selected); setConfigDraft(null); setAutoHits([]); setAutoId(''); setRule(blankRule()); setRuleOpen(false); setCreateListOpen(false); setServiceOpen(false);
+      setHits([]); setSearched(false); setSearchedKeyword(''); invalidateCollection(selected); setConfigDraft(null); setListHits([]); setListId(''); setListQuery(''); setListName(''); setRule(blankRule()); setRuleOpen(false); setCreateListOpen(false); setServiceOpen(false);
       if (!selected) return;
       try { localStorage.setItem('pocket-kit-xiaoai-speaker', selected); setPlayMode(localStorage.getItem(`pocket-kit-xiaoai-mode:${selected}`) || 'sequence'); } catch {}
       setVolume(profiles.find(p => p.id === selected)?.volume ?? 30);
@@ -242,16 +242,18 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
       }, notice);
     }
     const lists = (automation?.playlists || []).filter(p => p.profileId === selected);
-    const chosenList = lists.find(p => p.id === autoId) || lists[0];
+    const chosenList = lists.find(p => p.id === listId) || lists[0];
+    const rulesFor = id => (automation?.rules || []).filter(item => item.profileId === selected && item.playlistId === id).length;
     const rules = (automation?.rules || []).filter(r => r.profileId === selected);
     const updateRule = (key, value) => setRule(previous => ({ ...previous, [key]: value }));
     const updateControl = (key, value) => setControlDraft(previous => ({ ...previous, [key]: value }));
     const favorite = song => collection.favorites.some(item => item.path === song.path);
-    function tracks(songs, context) {
-      if (!songs.length) return h('p', { className: 'pk-muted' }, context === 'search' && !searched ? '输入歌名、歌手、专辑或文件名搜索本地曲库。' : '暂无歌曲');
+    function tracks(songs, context, namedList) {
+      if (!songs.length) return h('p', { className: 'pk-muted' }, context === 'search' && !searched ? '输入歌名、歌手、专辑或文件名搜索本地曲库。' : context === 'named' ? '歌单还是空的，搜索曲库把歌曲加进来。' : '暂无歌曲');
       const play = song => {
         if (context === 'search') return playAndRefresh('search/play', { keyword: searchedKeyword, path: song.path, mode: playMode }, '播放请求已发送');
         if (context === 'favorites') return playAndRefresh('favorites/play', { path: song.path, mode: playMode }, '播放请求已发送');
+        if (context === 'named') return playAndRefresh('playlists/play', { playlistId: namedList.id, path: song.path, mode: playMode }, '播放请求已发送');
         return playAndRefresh('playlist/play', { path: song.path, mode: playMode }, '播放请求已发送');
       };
       const now = profile?.currentSong || '';
@@ -267,7 +269,8 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
             h('button', { type: 'button', className: 'pk-icon-btn', 'aria-label': `播放 ${name}`, title: '播放', disabled: unavailable, onClick: () => play(song) }, '▶'),
             context !== 'playlist' && h('button', { type: 'button', className: 'pk-icon-btn', 'aria-label': `加入播放列表 ${name}`, title: '加入播放列表', disabled, onClick: () => perform(async () => { await call(P('playlist'), { songs: [song] }); await readback(() => loadCollection(), '列表或历史已更新'); }, '已加入播放列表') }, '＋'),
             h('button', { type: 'button', className: `pk-icon-btn${on ? ' is-on' : ''}`, 'aria-label': `${on ? '取消喜欢' : '喜欢'} ${name}`, title: on ? '取消喜欢' : '喜欢', disabled: disabled || !favoritesReady, onClick: () => perform(async () => { await call(P('favorites'), { song, favorite: !on }, 'PUT'); await readback(() => loadCollection(), '列表或历史已更新'); }, '收藏已更新') }, on ? '♥' : '♡'),
-            context === 'playlist' && h('button', { type: 'button', className: 'pk-icon-btn is-danger', 'aria-label': `从播放列表移除 ${name}`, title: '移除', disabled, onClick: () => { if (confirm('从播放列表移除此歌曲？不会删除音乐文件。')) perform(async () => { await call(`${P('playlist')}?path=${encodeURIComponent(song.path)}`, undefined, 'DELETE'); await readback(() => loadCollection(), '列表或历史已更新'); }, '已从列表移除'); } }, '✕')));
+            context === 'playlist' && h('button', { type: 'button', className: 'pk-icon-btn is-danger', 'aria-label': `从播放列表移除 ${name}`, title: '移除', disabled, onClick: () => { if (confirm('从播放列表移除此歌曲？不会删除音乐文件。')) perform(async () => { await call(`${P('playlist')}?path=${encodeURIComponent(song.path)}`, undefined, 'DELETE'); await readback(() => loadCollection(), '列表或历史已更新'); }, '已从列表移除'); } }, '✕'),
+            context === 'named' && h('button', { type: 'button', className: 'pk-icon-btn is-danger', 'aria-label': `从歌单移除 ${name}`, title: '从歌单移除', disabled, onClick: () => { if (confirm(`从歌单“${namedList.name}”移除此歌曲？音乐文件保留。`)) saveAutomation(next => { const target = next.playlists.find(entry => entry.id === namedList.id); if (target) target.songs = target.songs.filter(item => item.path !== song.path); }, '已从歌单移除'); } }, '✕')));
       }));
     }
     function configuration() {
@@ -326,14 +329,13 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
             button('取消', () => { setRuleOpen(false); setRule(blankRule()); }, action.busy))));
       return h('section', { className: 'pk-panel pk-xiaoai-auto' },
         h('h2', null, '定时与语音播放'),
-        h('p', { className: 'pk-muted' }, '为当前音箱设置每天定时播放，或对小爱说出提示词时播放歌单。'),
-        h('nav', { className: 'pk-tabs', 'aria-label': '自动播放管理' }, [['rules', '播放规则'], ['lists', '歌单管理']].map(([id, label]) => h('button', { key: id, type: 'button', 'aria-pressed': autoView === id, onClick: () => { action.clear(); setAutoView(id); } }, label))),
+        h('p', { className: 'pk-muted' }, '为当前音箱设置每天定时播放，或对小爱说出提示词时播放歌单；歌单在“歌单”页维护。'),
         !automation ? h(React.Fragment, null, h('p', null, '配置尚未读取。'), button('重新读取配置', () => perform(loadAutomation, '配置已读取'), disabled))
-          : autoView === 'rules' ? h(React.Fragment, null,
+          : h(React.Fragment, null,
             h('p', { className: 'pk-muted' }, online ? `服务在线 · 共 ${rules.length} 条规则，${enabledCount} 条启用` : '服务未就绪：规则可以保存，但目前不会执行'),
             profile?.automation?.error && h('p', { role: 'alert' }, profile.automation.error),
             h('div', { className: 'pk-actions' }, button(ruleOpen ? '收起编辑' : '新增规则', () => ruleOpen ? setRuleOpen(false) : openRule(), disabled || !readyLists.length), button('刷新', () => perform(loadAutomation, '配置已重新读取'), disabled)),
-            !readyLists.length && h('p', { className: 'pk-muted' }, '还没有含歌曲的歌单。先到“歌单管理”创建歌单并添加歌曲。'),
+            !readyLists.length && h('p', { className: 'pk-muted' }, '还没有含歌曲的歌单。先到“歌单”页创建歌单并添加歌曲。'),
             ruleForm,
             rules.length ? h('div', { className: 'pk-auto-rules' }, rules.map(item => {
               const list = lists.find(entry => entry.id === item.playlistId);
@@ -348,36 +350,60 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
             })) : h('p', { className: 'pk-muted' }, '还没有规则。点击“新增规则”开始。'),
             h('details', { className: 'pk-panel pk-auto-help' }, h('summary', null, '执行说明与上次结果'),
               h('p', { className: 'pk-muted' }, '定时每天最多尝试一次；错过、离线或失败不补播。关闭网页仍会运行，但音箱服务必须保持启动。'),
-              last ? h('p', { className: 'pk-wrap' }, `上次：${lastAt} · ${last.playlist || ''} · ${lastStatus}${last.error ? ' · ' + last.error : ''}`) : h('p', { className: 'pk-muted' }, '还没有执行记录。')))
-          : h(React.Fragment, null,
-            h('div', { className: 'pk-actions' }, button(createListOpen ? '取消新建' : '新建歌单', () => setCreateListOpen(value => !value), disabled), button('刷新', () => perform(loadAutomation, '配置已重新读取'), disabled)),
-            createListOpen && h('form', { className: 'pk-panel pk-form', onSubmit: async e => { e.preventDefault(); const id = newId(); const ok = await saveAutomation(next => next.playlists.push({ id, profileId: selected, name: autoName.trim(), songs: [] }), '歌单已创建，请继续添加歌曲'); if (ok) { setAutoId(id); setAutoName(''); setAutoHits([]); setCreateListOpen(false); } } },
-              field('新歌单名称', autoName, setAutoName, { required: true, maxLength: 40 }),
-              h('button', { type: 'submit', disabled: disabled || !autoName.trim() }, '创建歌单')),
-            !chosenList ? h('p', { className: 'pk-muted' }, '还没有歌单。新建后可以从曲库搜索添加歌曲。') : h(React.Fragment, null,
-              select('当前歌单', chosenList.id, id => { setAutoId(id); setAutoHits([]); setAutoQuery(''); }, lists.map(list => [list.id, `${list.name}（${list.songs.length}首）`])),
-              h('form', { className: 'pk-form pk-search', onSubmit: e => { e.preventDefault(); const id = selected; perform(async () => { const result = await read(`${P('search', id)}?q=${encodeURIComponent(autoQuery)}`); if (selectedRef.current === id) setAutoHits(result.items || []); }, '搜索完成'); } },
-                field('搜索歌曲加入歌单', autoQuery, setAutoQuery, { required: true, maxLength: 100 }),
-                h('button', { type: 'submit', disabled: disabled || !online }, '搜索')),
-              autoHits.length > 0 && h('div', { className: 'pk-auto-songs' }, autoHits.map(song => {
-                const added = chosenList.songs.some(item => item.path === song.path);
-                return h('div', { className: 'pk-auto-song', key: song.path },
-                  h('span', { className: 'pk-auto-song-name', title: songName(song) }, songName(song)),
-                  button(added ? '已加入' : '加入', () => saveAutomation(next => { const list = next.playlists.find(entry => entry.id === chosenList.id); if (!list.songs.some(item => item.path === song.path)) list.songs.push(song); }, '歌曲已加入歌单'), disabled || added));
-              })),
-              h('h3', null, `歌单中的歌曲（${chosenList.songs.length}）`),
-              chosenList.songs.length ? h('div', { className: 'pk-auto-songs' }, chosenList.songs.map((song, index) => h('div', { className: 'pk-auto-song', key: song.path },
-                h('span', { className: 'pk-auto-index' }, index + 1),
-                h('span', { className: 'pk-auto-song-name', title: songName(song) }, songName(song)),
-                h('button', { type: 'button', className: 'pk-icon-btn is-danger', title: '移除', 'aria-label': `移除 ${songName(song)}`, disabled, onClick: () => { if (confirm('从歌单移除此歌曲？音乐文件保留；删空后需先停用关联规则。')) saveAutomation(next => { next.playlists.find(entry => entry.id === chosenList.id).songs.splice(index, 1); }, '歌曲已移除'); } }, '✕')))) : h('p', { className: 'pk-muted' }, '歌单为空，先搜索并加入歌曲。'),
-              h('div', { className: 'pk-actions' },
-                button('用此歌单新建规则', () => { setAutoView('rules'); openRule({ ...blankRule(), playlistId: chosenList.id }); }, disabled || !chosenList.songs.length)),
-              h('details', { className: 'pk-panel pk-auto-help' }, h('summary', null, '歌单设置'),
-                h('form', { key: `${chosenList.id}:${chosenList.name}`, className: 'pk-form', onSubmit: e => { e.preventDefault(); const name = new FormData(e.currentTarget).get('name'); saveAutomation(next => { next.playlists.find(entry => entry.id === chosenList.id).name = String(name).trim(); }, '歌单名称已更新'); } },
-                  h('label', null, '歌单名称', h('input', { name: 'name', defaultValue: chosenList.name, required: true, maxLength: 40 })),
-                  h('button', { type: 'submit', disabled }, '保存名称')),
-                button('复制播放列表到此歌单', () => { if (confirm('将播放列表中的歌曲复制到此歌单？重复项跳过，之后分别维护。')) saveAutomation(next => { const list = next.playlists.find(entry => entry.id === chosenList.id); for (const song of collection.playlist) if (!list.songs.some(item => item.path === song.path)) list.songs.push(song); }, '歌曲已复制到歌单'); }, disabled || !collectionReady || !collection.playlist.length),
-                button('删除此歌单', () => { if (confirm(`删除“${chosenList.name}”及关联的 ${rules.filter(item => item.playlistId === chosenList.id).length} 条规则？音乐文件保留。`)) saveAutomation(next => { next.playlists = next.playlists.filter(entry => entry.id !== chosenList.id); next.rules = next.rules.filter(ruleItem => ruleItem.playlistId !== chosenList.id); }, '歌单及关联规则已删除'); }, disabled, 'pk-danger')))));
+              last ? h('p', { className: 'pk-wrap' }, `上次：${lastAt} · ${last.playlist || ''} · ${lastStatus}${last.error ? ' · ' + last.error : ''}`) : h('p', { className: 'pk-muted' }, '还没有执行记录。'))));
+    }
+    function playlistsPanel() {
+      if (!automation) return h('section', { className: 'pk-panel' },
+        h('h2', null, '歌单'),
+        h('p', null, '配置尚未读取。'),
+        button('重新读取配置', () => perform(loadAutomation, '配置已读取'), disabled));
+      const createForm = createListOpen && h('form', { className: 'pk-form pk-playlist-create', onSubmit: async event => {
+        event.preventDefault(); const id = newId();
+        const ok = await saveAutomation(next => next.playlists.push({ id, profileId: selected, name: listName.trim(), songs: [] }), '歌单已创建，请继续添加歌曲');
+        if (ok) { setListId(id); setListName(''); setListHits([]); setListQuery(''); setCreateListOpen(false); }
+      } },
+        field('新歌单名称', listName, setListName, { required: true, maxLength: 40 }),
+        h('button', { type: 'submit', disabled: disabled || !listName.trim() }, '创建歌单'));
+      const detail = chosenList && h('section', { className: 'pk-playlist-detail', 'aria-label': `歌单 ${chosenList.name}` },
+        h('div', { className: 'pk-list-head' },
+          h('h2', null, chosenList.name),
+          h('span', { className: 'pk-muted' }, `${chosenList.songs.length} 首 · ${rulesFor(chosenList.id)} 条规则`)),
+        h('div', { className: 'pk-actions' },
+          button('播放整个歌单', () => playAndRefresh('playlists/play', { playlistId: chosenList.id, mode: playMode }, '播放请求已发送'), unavailable || !chosenList.songs.length, 'pk-primary'),
+          button('用此歌单新建规则', () => { switchLibraryTab('automation'); openRule({ ...blankRule(), playlistId: chosenList.id }); }, disabled || !chosenList.songs.length)),
+        h('p', { className: 'pk-muted' }, '点某首从该曲开始，会把该曲及歌单中后面的歌曲加入播放列表。'),
+        h('form', { className: 'pk-form pk-search', onSubmit: e => { e.preventDefault(); const id = selected; perform(async () => { const result = await read(`${P('search', id)}?q=${encodeURIComponent(listQuery)}`); if (selectedRef.current === id) setListHits(result.items || []); }, '搜索完成'); } },
+          field('搜索曲库加入歌单', listQuery, setListQuery, { required: true, maxLength: 100 }),
+          h('button', { type: 'submit', disabled: disabled || !online }, '搜索')),
+        listHits.length > 0 && h('div', { className: 'pk-auto-songs' }, listHits.map(song => {
+          const added = chosenList.songs.some(item => item.path === song.path);
+          return h('div', { className: 'pk-auto-song', key: song.path },
+            h('span', { className: 'pk-auto-song-name', title: songName(song) }, songName(song)),
+            button(added ? '已加入' : '加入', () => saveAutomation(next => { const list = next.playlists.find(entry => entry.id === chosenList.id); if (!list.songs.some(item => item.path === song.path)) list.songs.push(song); }, '歌曲已加入歌单'), disabled || added));
+        })),
+        h('h3', null, `歌单中的歌曲（${chosenList.songs.length}）`),
+        tracks(chosenList.songs, 'named', chosenList),
+        h('details', { className: 'pk-panel pk-auto-help' }, h('summary', null, '歌单设置'),
+          h('form', { key: `${chosenList.id}:${chosenList.name}`, className: 'pk-form', onSubmit: e => { e.preventDefault(); const name = new FormData(e.currentTarget).get('name'); saveAutomation(next => { next.playlists.find(entry => entry.id === chosenList.id).name = String(name).trim(); }, '歌单名称已更新'); } },
+            h('label', null, '歌单名称', h('input', { name: 'name', defaultValue: chosenList.name, required: true, maxLength: 40 })),
+            h('button', { type: 'submit', disabled }, '保存名称')),
+          button('复制播放列表到此歌单', () => { if (confirm('将播放列表中的歌曲复制到此歌单？重复项跳过，之后分别维护。')) saveAutomation(next => { const list = next.playlists.find(entry => entry.id === chosenList.id); for (const song of collection.playlist) if (!list.songs.some(item => item.path === song.path)) list.songs.push(song); }, '歌曲已复制到歌单'); }, disabled || !collectionReady || !collection.playlist.length),
+          button('删除此歌单', async () => {
+            if (!confirm(`删除“${chosenList.name}”及关联的 ${rulesFor(chosenList.id)} 条规则？音乐文件保留。`)) return;
+            const ok = await saveAutomation(next => { next.playlists = next.playlists.filter(entry => entry.id !== chosenList.id); next.rules = next.rules.filter(ruleItem => ruleItem.playlistId !== chosenList.id); }, '歌单及关联规则已删除');
+            if (ok) { setListId(''); setListHits([]); setListQuery(''); }
+          }, disabled, 'pk-danger')));
+      return h('section', { className: 'pk-panel pk-xiaoai-playlists', 'aria-label': '歌单' },
+        h('div', { className: 'pk-list-head' },
+          h('div', null, h('h2', null, '歌单'), h('p', { className: 'pk-muted' }, '当前音箱的歌单；可直接播放，也可供定时与语音规则使用。')),
+          h('span', { className: 'pk-badge' }, `${lists.length} 个`)),
+        h('div', { className: 'pk-actions' },
+          button(createListOpen ? '取消新建' : '新建歌单', () => setCreateListOpen(value => !value), disabled),
+          button('刷新', () => perform(loadAutomation, '配置已重新读取'), disabled)),
+        createForm,
+        lists.length ? h(React.Fragment, null,
+          h('nav', { className: 'pk-playlist-picker', 'aria-label': '选择歌单' }, lists.map(item => h('button', { type: 'button', key: item.id, 'aria-pressed': item.id === chosenList?.id, onClick: () => { if (item.id === chosenList?.id) return; action.clear(); setListId(item.id); setListHits([]); setListQuery(''); } }, `${item.name}（${item.songs.length}）`))),
+          detail) : h('p', { className: 'pk-muted' }, '还没有歌单。点击“新建歌单”开始。'));
     }
     function playerPanel() {
       const currentTitle = profile?.currentSong ? profile.currentSong.replace(/\.[^./]+$/, '') : '';
@@ -448,8 +474,8 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
     }
     function playbackView() {
       return h(React.Fragment, null,
-        h('nav', { className: 'pk-tabs', 'aria-label': '播放内容' }, [['playlist', '播放台'], ['search', '曲库搜索'], ['favorites', '我喜欢'], ['automation', '定时播放']].map(([id, label]) => h('button', { type: 'button', key: id, 'aria-pressed': libraryTab === id, onClick: () => switchLibraryTab(id) }, label))),
-        libraryTab === 'playlist' ? h(React.Fragment, null, playerPanel(), playlistPanel()) : libraryTab === 'search' ? searchPanel() : libraryTab === 'favorites' ? favoritesPanel() : automationPanel());
+        h('nav', { className: 'pk-tabs pk-library-tabs', 'aria-label': '播放内容' }, [['playlist', '播放台'], ['search', '曲库搜索'], ['favorites', '我喜欢'], ['playlists', '歌单'], ['automation', '定时播放']].map(([id, label]) => h('button', { type: 'button', key: id, 'aria-pressed': libraryTab === id, onClick: () => switchLibraryTab(id) }, label))),
+        libraryTab === 'playlist' ? h(React.Fragment, null, playerPanel(), playlistPanel()) : libraryTab === 'search' ? searchPanel() : libraryTab === 'favorites' ? favoritesPanel() : libraryTab === 'playlists' ? playlistsPanel() : automationPanel());
     }
     async function sendText(value, sendMode, clear = false, sendSilent = silent) {
       const id = selected;
