@@ -1,6 +1,7 @@
 package top.fnaio.direct;
 
 import java.net.URI;
+import java.util.Locale;
 
 /** The chosen route, not a redirect, decides whether NAS authentication is used. */
 public final class AccessRoute {
@@ -9,32 +10,41 @@ public final class AccessRoute {
     public final AccessPolicy nas;
     public final boolean direct;
     private final String directUrl;
-    private final AccessPolicy directAuthority;
+    private final String directOrigin;
 
     public AccessRoute(AccessPolicy nas, String directUrl, boolean direct) {
         this.nas = nas;
         this.direct = direct;
         this.directUrl = directUrl;
         if (directUrl == null || directUrl.isEmpty()) {
-            if (direct) throw new IllegalArgumentException("尚未配置 HTTPS 直连入口");
-            directAuthority = null;
+            if (direct) throw new IllegalArgumentException("尚未配置直连入口");
+            directOrigin = null;
             return;
         }
         try {
             URI uri = new URI(directUrl);
-            if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null
-                    || uri.getRawUserInfo() != null || uri.getRawQuery() != null || uri.getRawFragment() != null
-                    || uri.getRawPath().contains("\\") || !uri.normalize().equals(uri)) {
+            String scheme = uri.getScheme();
+            if ((!"https".equalsIgnoreCase(scheme) && !"http".equalsIgnoreCase(scheme)) || uri.getHost() == null
+                    || uri.getRawUserInfo() != null || uri.getRawFragment() != null
+                    || uri.getRawPath().contains("\\") || !uri.normalize().equals(uri)
+                    || uri.getPort() == 0 || uri.getPort() > 65535 || uri.getPort() < -1) {
                 throw new IllegalArgumentException();
             }
-            directAuthority = new AccessPolicy("https://" + uri.getRawAuthority(), "dsh");
+            directOrigin = scheme.toLowerCase(Locale.ROOT) + "://" + uri.getRawAuthority().toLowerCase(Locale.ROOT);
         } catch (Exception e) {
-            throw new IllegalArgumentException("直连入口必须是无凭据、无查询参数的 HTTPS 地址");
+            throw new IllegalArgumentException("直连入口必须是无凭据、无片段的 HTTP(S) 地址");
         }
     }
     public boolean requiresNasLogin() { return !direct; }
     public String entry() { return direct ? directUrl : nas.target(); }
-    public boolean allows(String url) { return direct ? directAuthority.sameOrigin(url) : nas.sameOrigin(url); }
+    public boolean allows(String url) { return direct ? sameDirectOrigin(url) : nas.sameOrigin(url); }
+    private boolean sameDirectOrigin(String value) {
+        try {
+            URI b = new URI(value);
+            return b.getRawUserInfo() == null
+                    && (b.getScheme() + "://" + b.getRawAuthority()).equalsIgnoreCase(directOrigin);
+        } catch (Exception e) { return false; }
+    }
     public Navigation navigation(String url) {
         if (allows(url)) return Navigation.IN_APP;
         return safeExternal(url) ? Navigation.EXTERNAL : Navigation.BLOCKED;

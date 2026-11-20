@@ -8,6 +8,6 @@
 - 不直接修改飞牛 Nginx、数据库或 DSH 宿主；通过正式 FPK 与应用中心安装。部署只重启 aio。
 - 开始任务先读本文件，并按任务查阅 README 与对应 `docs/` 操作手册；README 是项目介绍和功能入口，不是可忽略的背景材料。
 - 使用 `npm run verify` 验证；`npm run build -- /绝对路径/本机网关策略.json` 构建独立 FPK。
-- Android APK 构建请求必须先查阅 `docs/android.md` 的“当前机器：直接复用已有配置”，在 `fn-aio/` 根目录加载 `.local/android-build.env`，按文档提供的私人入口参数运行 `:app:assembleDebug :app:lintDebug`，并以唯一文件名复制 APK 到 `.local/`。不得先假定缺少 JDK/SDK、跳过私人配置，或只运行裸 `./gradlew assembleDebug`；遇到真实构建错误再报告具体阻塞。
+- Android APK 构建请求先查阅 `docs/android.md` 的“本机构建：一键出包”，用仓库内 `./scripts/build-android.sh`（机器无关、不含密钥）出包；脚本自动定位 JDK/SDK，只读 `.local/android-build.env`（私有入口）与 `.local/debug.keystore`（调试签名 key，密码/别名是 Android 调试 key 公开默认值 android / androiddebugkey）。不得只运行裸 `./gradlew assembleDebug` 跳过签名与私有入口；遇到真实构建错误再报告具体阻塞。
 - 不主动运行浏览器、Playwright 或截图；构建、接口测试、安装成功与真实 UI 验收要分别说明。
 - 修改行为、安全边界或配置结构时同步更新 README 与文档。
