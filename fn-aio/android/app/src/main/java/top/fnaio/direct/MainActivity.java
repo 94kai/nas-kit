@@ -70,7 +70,7 @@ public class MainActivity extends Activity {
     private boolean active, recovering, probing, destroyed, clearHistoryOnFinish, clearRecoveryHistory;
     private boolean menuExpanded, positionReady;
     private int generation;
-    private long recoveryDeadline;
+    private long recoveryDeadline, dragGuardUntil;
     private ValueCallback<Uri[]> fileCallback;
     private AlertDialog externalDialog, exitDialog;
     private android.window.OnBackInvokedCallback backCallback;
@@ -517,27 +517,51 @@ public class MainActivity extends Activity {
             edit.setBackground(new RippleDrawable(ColorStateList.valueOf(Color.argb(24, 63, 94, 151)), background(Color.TRANSPARENT, 22), null));
             row.addView(edit, new LinearLayout.LayoutParams(dp(44), dp(44)));
             drag.setOnLongClickListener(v -> {
+                dragGuardUntil = SystemClock.elapsedRealtime() + 700;
                 ClipData clip = ClipData.newPlainText("导航排序", String.valueOf(index));
                 row.startDragAndDrop(clip, new View.DragShadowBuilder(row), index, 0);
                 return true;
             });
             row.setOnDragListener((view, event) -> {
                 switch (event.getAction()) {
-                    case DragEvent.ACTION_DRAG_STARTED: return true;
+                    case DragEvent.ACTION_DRAG_STARTED:
+                        dragGuardUntil = Math.max(dragGuardUntil, SystemClock.elapsedRealtime() + 700);
+                        return true;
+                    case DragEvent.ACTION_DRAG_LOCATION:
+                        dragGuardUntil = Math.max(dragGuardUntil, SystemClock.elapsedRealtime() + 500);
+                        return true;
                     case DragEvent.ACTION_DRAG_ENTERED: view.setAlpha(0.62f); return true;
                     case DragEvent.ACTION_DRAG_EXITED: view.setAlpha(1f); return true;
                     case DragEvent.ACTION_DROP:
                         view.setAlpha(1f);
+                        dragGuardUntil = Math.max(dragGuardUntil, SystemClock.elapsedRealtime() + 500);
                         Object state = event.getLocalState();
                         if (state instanceof Integer) reorderWebItems((Integer) state, index, ref[0]);
                         return true;
-                    case DragEvent.ACTION_DRAG_ENDED: view.setAlpha(1f); return true;
+                    case DragEvent.ACTION_DRAG_ENDED:
+                        view.setAlpha(1f);
+                        dragGuardUntil = Math.max(dragGuardUntil, SystemClock.elapsedRealtime() + 500);
+                        return true;
                     default: return true;
                 }
             });
-            row.setOnClickListener(v -> { persistWebItems(items, index); if (ref[0] != null) ref[0].dismiss(); openWebAt(index); });
-            row.setOnLongClickListener(v -> { if (ref[0] != null) ref[0].dismiss(); showWebEditor(items, index); return true; });
-            edit.setOnClickListener(v -> { if (ref[0] != null) ref[0].dismiss(); showWebEditor(items, index); });
+            row.setOnClickListener(v -> {
+                if (SystemClock.elapsedRealtime() < dragGuardUntil) return;
+                webPrefs().edit().putInt("active", index).apply();
+                if (ref[0] != null) ref[0].dismiss();
+                openWebAt(index);
+            });
+            row.setOnLongClickListener(v -> {
+                if (SystemClock.elapsedRealtime() < dragGuardUntil) return true;
+                if (ref[0] != null) ref[0].dismiss();
+                showWebEditor(items, index);
+                return true;
+            });
+            edit.setOnClickListener(v -> {
+                if (SystemClock.elapsedRealtime() < dragGuardUntil) return;
+                if (ref[0] != null) ref[0].dismiss();
+                showWebEditor(items, index);
+            });
             body.addView(row);
         }
         body.setOnDragListener((view, event) -> true);
@@ -554,13 +578,20 @@ public class MainActivity extends Activity {
         if (from < 0 || from >= items.length() || to < 0 || to >= items.length()) return;
         JSONObject moved = items.optJSONObject(from);
         if (moved == null) return;
-        try { items.remove(from); items.put(to, moved); }
-        catch (Exception e) { return; }
+        // 按目标位置重建数组，避免 remove/put 之后索引偏移或异常造成条目丢失。
+        JSONArray reordered = new JSONArray();
+        for (int i = 0; i < items.length(); i++) {
+            if (i == from) continue;
+            if (i == to && from > to) reordered.put(moved);
+            reordered.put(items.opt(i));
+            if (i == to && from < to) reordered.put(moved);
+        }
+        if (reordered.length() != items.length()) { notice("排序失败，已保留原列表"); return; }
         int active = webPrefs().getInt("active", 0), nextActive = active;
         if (active == from) nextActive = to;
         else if (from < active && to >= active) nextActive = active - 1;
         else if (from > active && to <= active) nextActive = active + 1;
-        persistWebItems(items, nextActive);
+        persistWebItems(reordered, nextActive);
         updateBallDots();
         if (dialog != null) handler.post(() -> { dialog.dismiss(); configureWeb(); });
     }
@@ -595,11 +626,18 @@ public class MainActivity extends Activity {
                 try { routeFor(urlText); }
                 catch (IllegalArgumentException e) { url.setError(e.getMessage()); return; }
                 String previousUrl = existing == null ? "" : existing.optString("url", "");
-                JSONObject obj = existing;
-                if (!editing) { obj = new JSONObject(); items.put(obj); }
+                JSONArray current = webItems();
+                JSONObject obj;
+                if (editing) {
+                    if (index < 0 || index >= current.length()) { dialog.dismiss(); return; }
+                    obj = current.optJSONObject(index);
+                    if (obj == null) { dialog.dismiss(); return; }
+                } else {
+                    obj = new JSONObject(); current.put(obj);
+                }
                 try { obj.put("name", name.getText().toString().trim()).put("url", urlText); } catch (Exception ignored) {}
-                int target = editing ? index : items.length() - 1;
-                persistWebItems(items, editing ? active : target);
+                int target = editing ? index : current.length() - 1;
+                persistWebItems(current, editing ? active : target);
                 dialog.dismiss();
                 if (!editing || !urlText.equals(previousUrl)) openWebAt(target);
             });
@@ -608,13 +646,15 @@ public class MainActivity extends Activity {
                 if (label.isEmpty()) label = existing.optString("url", "");
                 new AlertDialog.Builder(this).setTitle("删除网址").setMessage("删除「" + label + "」？")
                     .setNegativeButton("取消", null).setPositiveButton("删除", (dd, w) -> {
-                        items.remove(index);
+                        JSONArray current = webItems();
+                        if (index < 0 || index >= current.length()) { dialog.dismiss(); return; }
+                        current.remove(index);
                         int next;
-                        if (items.length() == 0) next = -1;
+                        if (current.length() == 0) next = -1;
                         else if (index < active) next = active - 1;
-                        else if (index == active) next = Math.min(index, items.length() - 1);
+                        else if (index == active) next = Math.min(index, current.length() - 1);
                         else next = active;
-                        persistWebItems(items, next);
+                        persistWebItems(current, next);
                         updateBallDots();
                         dialog.dismiss();
                         if (index == active && next >= 0) openWebAt(next);
