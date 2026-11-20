@@ -6,7 +6,14 @@
 
 /** 可选配色。每项：强调色、悬停色、侧栏底、主背景，均为 [浅色, 深色]。 */
 const ACCENTS = {
-  // 苔绿：温润的灰绿，侧栏一眼能看出，主区域再淡一层
+  // 玫瑰粉：中性的粉调，明确但不甜腻（默认）
+  rose: {
+    accent: ['#82354f', '#db94ac'],
+    hover: ['#702e44', '#d47d9a'],
+    sidebar: ['#f0d8e0', '#321b23'],
+    base: ['#f9f0f3', '#1e1015'],
+  },
+  // 苔绿：温润的灰绿，最安静的一档
   moss: {
     accent: ['#347960', '#93c0af'],
     hover: ['#2c6852', '#80b4a1'],
@@ -43,7 +50,7 @@ const ACCENTS = {
   },
 };
 
-const DEFAULT_ACCENT = 'moss';
+const DEFAULT_ACCENT = 'rose';
 
 /** 深层 token 引用：选择器比主题样式表的 body 规则更具体，晚注入的调色板也压不掉。 */
 function paletteCss({ accent, hover, sidebar, base }) {

@@ -4,4 +4,4 @@
     - id: dsh-accent
       name: '@local/dsh-accent'
       config:
-        accent: moss
+        accent: rose
