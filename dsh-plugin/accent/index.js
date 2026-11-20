@@ -6,16 +6,16 @@
 
 /** 可选配色。每项：强调色、悬停色、侧栏底，均为 [浅色, 深色]。 */
 const ACCENTS = {
-  // 苔绿：温润的灰绿，最不扎眼的一档
-  moss: { accent: ['#446f5d', '#98bbac'], hover: ['#3a5f50', '#86ae9e'], sidebar: ['#f4f7f6', '#1a211e'] },
+  // 苔绿：温润的灰绿，侧栏一眼能看出，但仍是灰调
+  moss: { accent: ['#347960', '#93c0af'], hover: ['#2c6852', '#80b4a1'], sidebar: ['#e7f1ed', '#1a2d26'] },
   // 雾青：偏冷的青灰，和默认的蓝区分得开
-  sea: { accent: ['#406a72', '#98b5bb'], hover: ['#375b62', '#86a8ae'], sidebar: ['#f4f6f7', '#1a2021'] },
-  // 青灰：安静的靛灰，接近原来的中性观感
-  slate: { accent: ['#424670', '#9c9ebd'], hover: ['#393c60', '#898cb0'], sidebar: ['#f4f4f7', '#1a1a21'] },
+  sea: { accent: ['#316e7d', '#93b7c0'], hover: ['#295d6a', '#80aab4'], sidebar: ['#e7eff1', '#1a292d'] },
+  // 青灰：安静的靛蓝，颜色最深、最沉
+  slate: { accent: ['#373a7b', '#989ac0'], hover: ['#2f316a', '#8587b4'], sidebar: ['#e7e7f1', '#1a1b2d'] },
   // 陶土：偏暖的赭石，浅色下像旧纸
-  clay: { accent: ['#775440', '#c2aa9b'], hover: ['#674937', '#b69988'], sidebar: ['#f7f5f4', '#211c1a'] },
+  clay: { accent: ['#864e32', '#c7a797'], hover: ['#73432b', '#bc9683'], sidebar: ['#f1eae7', '#2d211a'] },
   // 灰紫：低饱和的藕紫，深色下最柔和
-  plum: { accent: ['#734a73', '#bda0bd'], hover: ['#644064', '#b18eb1'], sidebar: ['#f7f4f7', '#211a21'] },
+  plum: { accent: ['#7b3d76', '#c398bf'], hover: ['#6a3465', '#b785b3'], sidebar: ['#f1e7f0', '#2d1a2b'] },
 };
 
 const DEFAULT_ACCENT = 'moss';
