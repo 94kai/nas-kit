@@ -4,13 +4,14 @@ import {readFile} from 'node:fs/promises';
 const dir=new URL('../android/app/src/main/java/top/fnaio/direct/',import.meta.url);
 const read=name=>readFile(new URL(name,dir),'utf8');
 
-test('悬浮球缩小为 34dp 视觉，保留 44dp 触控、半透明与三项菜单',async()=>{
+test('悬浮球固定配色并用点数显示导航索引，保留 44dp 触控与拖动排序',async()=>{
   const [ball,main]=await Promise.all([read('FloatingBall.java'),read('MainActivity.java')]);
   assert.match(ball,/radius = dp\(17\)/);
   assert.match(ball,/setAlpha\(0\.86f\)/);
   assert.match(ball,/expanded \|\| interacting \? 1f : 0\.86f/);
-  assert.match(ball,/direct \? Color\.argb\(245, 22, 160, 133\) : Color\.argb\(245, 83, 109, 254\)/);
-  assert.match(ball,/direct \? Color\.argb\(235, 17, 128, 107\) : Color\.argb\(235, 63, 81, 211\)/);
+  assert.match(ball,/Color\.argb\(245, 83, 109, 254\)/);
+  assert.match(ball,/setDotCount/);
+  assert.match(ball,/dotCount > 9/);
   assert.match(ball,/performClick\(\)/);
   assert.match(main,/BALL_DP = 44/);
   assert.match(main,/MENU_HEIGHT_DP = 156/);
@@ -19,6 +20,9 @@ test('悬浮球缩小为 34dp 视觉，保留 44dp 触控、半透明与三项�
   assert.match(main,/downloads\.dismissManager\(\)/);
   assert.match(main,/ball\.setInteracting\(true\)/);
   assert.match(main,/MENU_HEIGHT_DP \+ 6/);
+  assert.match(main,/updateBallDots/);
+  assert.match(main,/reorderWebItems/);
+  assert.match(main,/startDragAndDrop/);
 });
 test('APK 仅用户点击后安装，授权返回重验记录，提供文件浏览回退',async()=>{
   const [installer,native,ui,manifest]=await Promise.all([read('ApkInstaller.java'),read('WebDownloads.java'),read('DownloadManagerDialog.java'),readFile(new URL('../android/app/src/main/AndroidManifest.xml',import.meta.url),'utf8')]);

@@ -1,5 +1,14 @@
 # 验证与部署记录
 
+## 2026-11-21：Android「Agent」0.11.2（悬浮球索引点数与导航拖动排序）
+
+- 悬浮球不再按 FN ID/直连切换青绿/靛蓝配色，统一为固定的靛蓝渐变；球内点的数量改为 Agent 当前导航索引（从 1 开始）。1–9 个用点阵排布，10 个以上显示数字，避免 34dp 球内挤成一团；工具箱入口固定 1 个点。
+- Agent 网址列表每行左侧新增六点拖动手柄，长按手柄开始拖动、松手落到目标行完成排序；排序只改 `web_entry.items` 顺序并同步 `active` 下标，不刷新当前网页。右侧铅笔/长按修改和删除逻辑不变。
+- 悬浮球点数在进入、切换、新增、删除、拖动排序后都会同步；删除当前项后沿用原本的下一项逻辑。版本 **0.11.2（versionCode 34）**。
+- 构建成功：`:app:assembleDebug :app:lintDebug`，Lint **0 errors, 15 warnings**；`aapt dump badging` 仍只有 Agent、聊天、工具箱三个 launchable，Manifest 无 `MainActivity`；v2 调试签名证书不变。
+- 交付 APK：`.local/agent-0.11.2-20261121-063234-debug.apk`（222 KiB，SHA256 `f04b591ab056a80ed437029d500703c4156b7d1bf4fbbbaebc57ac3430083fc2`），与构建输出一致。
+- 未安装手机、未截图，未运行 `npm run verify`；拖动排序的手感、点数随索引变化、长按手柄与 ScrollView/弹窗的交互需真机验收。
+
 ## 2026-11-21：Android「Agent」0.11.1（清除残留的 DSH Activity 声明）
 
 - 用户反馈安装后桌面仍有第 4 个 DSH 图标。核对 0.11.0 APK：`aapt dump badging` 的 `launchable-activity` 只有 Agent、聊天、工具箱三个；确认不是新包重新加入 DSH，而是旧版桌面快捷方式/启动器缓存仍指向原 `MainActivity`。

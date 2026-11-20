@@ -3,6 +3,7 @@ package top.fnaio.direct;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
@@ -16,6 +17,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
+import android.view.DragEvent;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -34,6 +36,7 @@ import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -168,7 +171,7 @@ public class MainActivity extends Activity {
         }
         try {
             initializeRoute();
-            ball.setDirect(route.direct);
+            updateBallDots();
             openTarget();
         } catch (IllegalArgumentException e) { configure(); }
     }
@@ -292,7 +295,6 @@ public class MainActivity extends Activity {
                     route = next;
                     preferences.edit().putBoolean("directMode", direct).apply();
                     web.clearHistory(); clearHistoryOnFinish = true;
-                    ball.setDirect(direct);
                     dialog.dismiss(); openTarget();
                     notice(direct ? "已切换为 HTTPS 直连" : "已切换为 FN ID 访问");
                 } catch (IllegalArgumentException e) { notice(e.getMessage()); }
@@ -472,17 +474,18 @@ public class MainActivity extends Activity {
         })); dialog.show();
     }
 
-    /** Agent 入口：列出已保存网址，点按切换，右侧 ✎ 或长按修改、删除。 */
+    /** Agent 入口：列出已保存网址，点按切换，左侧手柄拖动排序，铅笔或长按修改。 */
     private void configureWeb() {
         JSONArray items = webItems();
         int active = webPrefs().getInt("active", 0);
+        updateBallDots();
         LinearLayout body = new LinearLayout(this); body.setOrientation(LinearLayout.VERTICAL);
         if (items.length() == 0) {
             TextView empty = new TextView(this); empty.setText("还没有保存的网址，点「新增」添加第一个");
             empty.setTextSize(15); empty.setTextColor(Color.rgb(117, 130, 127)); empty.setPadding(dp(14), dp(16), dp(14), dp(16));
             body.addView(empty);
         } else {
-            TextView hint = new TextView(this); hint.setText("点按切换；点右侧铅笔或长按可修改、删除");
+            TextView hint = new TextView(this); hint.setText("点按切换；右侧铅笔或长按修改；长按左侧手柄拖动排序");
             hint.setTextSize(12); hint.setTextColor(Color.rgb(117, 130, 127)); hint.setPadding(dp(14), dp(6), dp(14), dp(6));
             body.addView(hint);
         }
@@ -493,8 +496,13 @@ public class MainActivity extends Activity {
             String name = item.optString("name", ""), url = item.optString("url", "");
             String label = name.isEmpty() ? url : name;
             LinearLayout row = new LinearLayout(this); row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(Gravity.CENTER_VERTICAL); row.setPadding(dp(14), dp(8), dp(4), dp(8));
+            row.setGravity(Gravity.CENTER_VERTICAL); row.setPadding(dp(2), dp(8), dp(4), dp(8));
             row.setBackground(new RippleDrawable(ColorStateList.valueOf(Color.argb(24, 63, 94, 151)), background(Color.TRANSPARENT, 10), null));
+            ImageView drag = new ImageView(this); drag.setImageResource(R.drawable.ic_drag_handle);
+            drag.setContentDescription("拖动排序 " + label); drag.setFocusable(true); drag.setPadding(dp(10), dp(10), dp(10), dp(10));
+            drag.setBackground(new RippleDrawable(ColorStateList.valueOf(Color.argb(24, 63, 94, 151)), background(Color.TRANSPARENT, 22), null));
+            drag.setOnClickListener(v -> { }); // 短按手柄不切换网址，长按开始拖动
+            row.addView(drag, new LinearLayout.LayoutParams(dp(44), dp(44)));
             LinearLayout text = new LinearLayout(this); text.setOrientation(LinearLayout.VERTICAL);
             TextView title = new TextView(this); title.setText((index == active ? "● " : "○ ") + label);
             title.setTextSize(16); title.setTextColor(Color.rgb(45, 57, 79));
@@ -508,15 +516,62 @@ public class MainActivity extends Activity {
             edit.setPadding(dp(10), dp(10), dp(10), dp(10));
             edit.setBackground(new RippleDrawable(ColorStateList.valueOf(Color.argb(24, 63, 94, 151)), background(Color.TRANSPARENT, 22), null));
             row.addView(edit, new LinearLayout.LayoutParams(dp(44), dp(44)));
+            drag.setOnLongClickListener(v -> {
+                ClipData clip = ClipData.newPlainText("导航排序", String.valueOf(index));
+                row.startDragAndDrop(clip, new View.DragShadowBuilder(row), index, 0);
+                return true;
+            });
+            row.setOnDragListener((view, event) -> {
+                switch (event.getAction()) {
+                    case DragEvent.ACTION_DRAG_STARTED: return true;
+                    case DragEvent.ACTION_DRAG_ENTERED: view.setAlpha(0.62f); return true;
+                    case DragEvent.ACTION_DRAG_EXITED: view.setAlpha(1f); return true;
+                    case DragEvent.ACTION_DROP:
+                        view.setAlpha(1f);
+                        Object state = event.getLocalState();
+                        if (state instanceof Integer) reorderWebItems((Integer) state, index, ref[0]);
+                        return true;
+                    case DragEvent.ACTION_DRAG_ENDED: view.setAlpha(1f); return true;
+                    default: return true;
+                }
+            });
             row.setOnClickListener(v -> { persistWebItems(items, index); if (ref[0] != null) ref[0].dismiss(); openWebAt(index); });
             row.setOnLongClickListener(v -> { if (ref[0] != null) ref[0].dismiss(); showWebEditor(items, index); return true; });
             edit.setOnClickListener(v -> { if (ref[0] != null) ref[0].dismiss(); showWebEditor(items, index); });
             body.addView(row);
         }
+        body.setOnDragListener((view, event) -> true);
         android.widget.ScrollView scroll = new android.widget.ScrollView(this); scroll.addView(body);
         AlertDialog dialog = new AlertDialog.Builder(this).setTitle("切换导航").setView(scroll)
             .setNegativeButton("取消", null).setNeutralButton("新增", (d, w) -> showWebEditor(items, -1)).create();
         ref[0] = dialog; dialog.show();
+    }
+
+    /** 拖动排序只改列表顺序和当前下标，不刷新正在显示的网页。 */
+    private void reorderWebItems(int from, int to, AlertDialog dialog) {
+        if (from == to) return;
+        JSONArray items = webItems();
+        if (from < 0 || from >= items.length() || to < 0 || to >= items.length()) return;
+        JSONObject moved = items.optJSONObject(from);
+        if (moved == null) return;
+        try { items.remove(from); items.put(to, moved); }
+        catch (Exception e) { return; }
+        int active = webPrefs().getInt("active", 0), nextActive = active;
+        if (active == from) nextActive = to;
+        else if (from < active && to >= active) nextActive = active - 1;
+        else if (from > active && to <= active) nextActive = active + 1;
+        persistWebItems(items, nextActive);
+        updateBallDots();
+        if (dialog != null) handler.post(() -> { dialog.dismiss(); configureWeb(); });
+    }
+
+    /** 悬浮球内的点数 = Agent 当前导航索引（1 起）；工具箱固定 1 个。 */
+    private void updateBallDots() {
+        if (ball == null) return;
+        if (!webEntry()) { ball.setDotCount(1); return; }
+        JSONArray items = webItems();
+        int active = webPrefs().getInt("active", 0);
+        ball.setDotCount(active >= 0 && active < items.length() ? active + 1 : 1);
     }
 
     /** 新增（index < 0）或修改已保存网址；删除也在修改页里完成。 */
@@ -560,6 +615,7 @@ public class MainActivity extends Activity {
                         else if (index == active) next = Math.min(index, items.length() - 1);
                         else next = active;
                         persistWebItems(items, next);
+                        updateBallDots();
                         dialog.dismiss();
                         if (index == active && next >= 0) openWebAt(next);
                     }).show();
@@ -576,8 +632,8 @@ public class MainActivity extends Activity {
         if (url.isEmpty()) return;
         try {
             AccessRoute next = routeFor(url);
-            web.stopLoading(); policy = next.nas; route = next; ball.setDirect(next.direct);
-            web.clearHistory(); clearHistoryOnFinish = true; openTarget();
+            web.stopLoading(); policy = next.nas; route = next;
+            web.clearHistory(); clearHistoryOnFinish = true; openTarget(); updateBallDots();
         } catch (IllegalArgumentException e) { notice(e.getMessage()); }
     }
 
