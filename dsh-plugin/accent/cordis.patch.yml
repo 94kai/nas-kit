@@ -1,0 +1,7 @@
+# 实例配色：一行 Host 占位，浏览器半边负责改主题 token。
+# 每个实例在自己的 profile 补丁里覆盖 accent 即可，不用改包里的代码。
+- insert:
+    - id: dsh-accent
+      name: '@local/dsh-accent'
+      config:
+        accent: moss

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Instance accent",
+    "description": "Gives each DSH instance a low-saturation identity color: a faint tint on the sidebar and title row, with links, focus rings and the send button following the same hue."
+  }
+}

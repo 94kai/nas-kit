@@ -28,6 +28,10 @@
 
 **小爱迁移后默认暂停**，不会自动接管旧音箱服务或执行定时播放。启用前必须停用旧服务的对应 worker、确认 LAN 隔离与端口，并由用户设置本地兼容许可，详见[小爱音箱文档](docs/features/xiaoai.md)。
 
+## 实例配色（`accent/`）
+
+`accent/` 是独立小插件 `@local/dsh-accent`，不属于工具箱，也不注册任何页面：它在页面 index 里注入一段高特异度 CSS，把侧栏/标题行底色、链接与发送按钮换成一种低饱和识别色，用来区分不同的 DSH 实例。可选配色、每个实例的配置方法和边界见 [accent/README.md](accent/README.md)。
+
 ## 开发
 
 需要支持内置 `node:test`、Fetch 和 ESM 的现代 Node.js（本环境验证版本见迁移记录）。无第三方构建依赖、无需安装脚本；运行时 `qrcode` 用于网易云二维码，`xlsx`/`pdfjs-dist` 用于健康与账单；健康需要支持node:sqlite的Node版本（至少22.13），原生终端使用DSH自带能力；用户可自行在shell中使用tmux。全新检出先执行 `npm ci --ignore-scripts`。音乐标签依赖系统 FFmpeg/ffprobe，小爱依赖 Python 3.10+；不会自动安装系统工具或启动设备服务。

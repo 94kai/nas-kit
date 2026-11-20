@@ -1,0 +1,24 @@
+{
+  "name": "@local/dsh-accent",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "description": "给每个 DSH 实例一套低饱和识别色：侧栏与标题行淡染，链接、焦点环和发送按钮跟随同色",
+  "exports": {
+    ".": "./index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
