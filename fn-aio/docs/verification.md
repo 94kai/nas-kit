@@ -1,5 +1,26 @@
 # 验证与部署记录
 
+## 2026-11-21：Android「Agent」0.11.1（清除残留的 DSH Activity 声明）
+
+- 用户反馈安装后桌面仍有第 4 个 DSH 图标。核对 0.11.0 APK：`aapt dump badging` 的 `launchable-activity` 只有 Agent、聊天、工具箱三个；确认不是新包重新加入 DSH，而是旧版桌面快捷方式/启动器缓存仍指向原 `MainActivity`。
+- 为彻底断开旧入口，从 Manifest 删除 `<activity .MainActivity>`（该类只是 Agent/工具箱共用的基类，不需要注册为 Activity），并把版本升到 **0.11.1（versionCode 33）**，强制走一次应用更新。
+- 重新构建成功；`aapt dump badging` 仍只有三个 launchable-activity，Manifest 中已无 `MainActivity`。Lint **0 errors, 15 warnings**，APK v2 调试签名证书不变（SHA-256 `782afa8b171c3faaad9dbd6381b6aae667f6560b0391bbd8e35d8a39c3e10852`）。
+- 交付 APK：`.local/agent-0.11.1-20261121-002429-debug.apk`（118 KiB，SHA256 `5b087370a463c5c873f499973fb6c14fa6a400e511334c6a660f69a466848835`），与构建输出一致。0.11.0 的 218 KiB 包已被本版替换。
+- 未安装手机、未截图；若安装 0.11.1 后桌面仍显示 DSH，属于启动器保留的旧快捷方式，长按移除或重启桌面即可；新包内没有 DSH 入口。
+
+## 2026-11-21：Android「Agent」0.11.0（DSH 与导航合并）
+
+- 按用户要求把原「DSH」与「导航」两个桌面入口合并为 **Agent**：桌面入口变为 Agent、聊天、工具箱三个；`AgentActivity` 复用 `MainActivity` 的 WebView 宿主，原 `WebEntryActivity`、导航地球仪图标及旧鲸鱼桌面图标资源删除。
+- Agent 网址列表支持点按切换、右侧铅笔或长按修改、修改页删除、底部新增；列表仍在私有偏好 `web_entry`（`items`/`active`）。首次打开 0.11.0 时会把原 DSH 直连地址和飞牛服务地址补进列表（已有相同网址则跳过），列表原本为空时由原 DSH 的 `directMode` 决定默认项；原导航列表保留，删除后不会自动加回。
+- 保存飞牛 `/app/aio/s/服务标识/` 根地址时自动走 FN ID 登录/健康检查；其它 HTTP(S) 地址按直连加载。DSH 直连/飞牛地址仍追加 `?toolbox=0`，非 DSH 的 AIO 服务不再附加该参数。
+- 直连网址可带查询参数，支持“先保存带 `?token=…` 的地址登录一次，再改成无 token 地址”，后续复用 WebView Cookie；未修改 DSH 宿主 token 登录补丁，也未改动 `../dsh-plugin/`。
+- 新图标为深紫蓝渐变底、白色 AI 星芒，应用名称/系统设置名称改为 `Agent`；旧 `ic_deepseek`、`ic_launcher`、`colors.xml` 随入口合并删除。版本 0.11.0（versionCode 32）。
+- 本机原缺少 JDK 17 与 Android SDK：已安装 Temurin JDK 17.0.21.1 到 `/home/xuekai.xk/tools/jdk-17`、Android SDK Platform 35 / Build Tools 35.0.0 到 `/home/xuekai.xk/android-sdk`；构建脚本补充 `$HOME/tools/jdk-17`、`$HOME/android-sdk` 查找路径。Gradle 8.11.1 从腾讯镜像预热到 wrapper 缓存，并在本机 `~/.gradle/init.d/` 临时使用阿里云 Maven 镜像解决 Maven Central 极慢的问题；镜像配置不进入仓库。
+- `./scripts/build-android.sh` 成功：`:app:assembleDebug :app:lintDebug`，Lint **0 errors, 15 warnings**（主要是既有 SetTextI18n/RtlHardcoded，以及基础 anydpi 图标未带 monochrome 的提示）。APK v2 调试签名验证通过，证书 SHA-256 与旧包同一把 Android Debug key：`782afa8b171c3faaad9dbd6381b6aae667f6560b0391bbd8e35d8a39c3e10852`。
+- `aapt dump badging`：package `top.fnaio.direct`、versionCode 32、versionName 0.11.0、minSdk 26、targetSdk 35、application-label `Agent`、图标 `ic_entry_agent`；launchable-activity 为 Agent、聊天、工具箱，权限仍只有 `INTERNET` 与 `REQUEST_INSTALL_PACKAGES`。
+- 交付 APK：`.local/agent-0.11.0-20261121-001823-debug.apk`（218 KiB，SHA256 `ba22bf364e366ad1e95a40a4e1c13213cea452e509c3550a70ee5038c5654f97`），与构建输出 `app-debug.apk` 一致；该构建已被 0.11.1 替换。
+- 本轮只做构建与 Lint，未安装手机、未启动浏览器/模拟器/截图，未运行 `npm run verify`；三入口图标裁切、Agent 网址新增/修改/切换、token 登录后改无 token 地址、FN ID 自动恢复仍需真机验收。编译/Lint 通过不代表这些交互已验收。
+
 ## 2026-11-18：Android「dsh」0.8.3（工具箱桌面入口与固定入口参数）
 
 - 按用户要求新增第 4 个桌面入口「工具箱」（`ToolboxActivity`），复用 dsh 的 WebView 宿主、访问设置、悬浮球、下载管理和登录 Cookie；入口地址追加 `?toolbox=1`，冷启动固定进入随身工具箱首页。原 dsh 入口改为追加 `?toolbox=0`，固定不自动进入工具箱；参数由随身工具箱 1.8.0+ 识别，裸地址仍保持按上次状态。

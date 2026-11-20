@@ -8,7 +8,7 @@ cd "$ROOT"
 
 # 1) 自动定位 JDK 17（优先环境变量，其次常见路径，最后从 PATH 反推）。
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "${JAVA_HOME}/bin/javac" ]; then
-  for c in /opt/homebrew/opt/openjdk@17 /home/xuekai/tools/jdk-17 \
+  for c in /opt/homebrew/opt/openjdk@17 /home/xuekai/tools/jdk-17 "$HOME/tools/jdk-17" \
            /usr/lib/jvm/java-17-openjdk /usr/lib/jvm/java-17; do
     if [ -x "$c/bin/javac" ]; then JAVA_HOME="$c"; break; fi
   done
@@ -21,7 +21,7 @@ export JAVA_HOME
 
 # 2) 自动定位 Android SDK（优先环境变量，其次常见路径）。
 if [ -z "${ANDROID_HOME:-}" ] || [ ! -d "${ANDROID_HOME}/platforms" ]; then
-  for c in /opt/homebrew/share/android-commandlinetools /home/xuekai/android-sdk \
+  for c in /opt/homebrew/share/android-commandlinetools /home/xuekai/android-sdk "$HOME/android-sdk" \
            "$HOME/Library/Android/sdk" /usr/local/share/android-commandlinetools; do
     if [ -d "$c/platforms" ]; then ANDROID_HOME="$c"; break; fi
   done
@@ -55,5 +55,5 @@ cd "$ROOT/android"
 # 6) 唯一文件名交付，不覆盖历史下载。
 VERSION="$(grep -oE "versionName '[0-9.]+'" "$ROOT/android/app/build.gradle" | head -1 | cut -d"'" -f2)"
 cp -n "$ROOT/.local/android-build/app/outputs/apk/debug/app-debug.apk" \
-  "$ROOT/.local/dsh-$VERSION-$(date +%Y%m%d-%H%M%S)-debug.apk"
-echo "APK 已生成：$ROOT/.local/dsh-$VERSION-*-debug.apk"
+  "$ROOT/.local/agent-$VERSION-$(date +%Y%m%d-%H%M%S)-debug.apk"
+echo "APK 已生成：$ROOT/.local/agent-$VERSION-*-debug.apk"

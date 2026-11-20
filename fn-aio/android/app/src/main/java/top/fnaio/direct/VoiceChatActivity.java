@@ -208,7 +208,7 @@ public final class VoiceChatActivity extends Activity {
         EditText lan=new EditText(this);lan.setSingleLine(true);lan.setTextSize(15);lan.setTextColor(INK);lan.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_URI);lan.setHint("局域网 HTTPS 地址，如 https://192.168.1.2/dsh/");lan.setText(prefs.getString("lan",""));form.addView(lan);
         EditText pub=new EditText(this);pub.setSingleLine(true);pub.setTextSize(15);pub.setTextColor(INK);pub.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_URI);pub.setHint("公网 HTTPS 地址，如 https://域名/dsh/");pub.setText(prefs.getString("public_url",""));form.addView(pub);
         Switch select=new Switch(this);select.setText("使用公网地址");select.setTextColor(INK);select.setTextSize(15);select.setChecked(prefs.getBoolean("use_public",false));form.addView(select);
-        TextView help=label("填写 DSH 服务根地址（可带挂载路径）。只接受受信任证书的 HTTPS，地址中不能填写凭据；两处地址各自登录。使用飞牛 FN ID 地址时，先到 DSH 入口完成飞牛登录。",12,MUTED);
+        TextView help=label("填写 DSH 服务根地址（可带挂载路径）。只接受受信任证书的 HTTPS，地址中不能填写凭据；两处地址各自登录。使用飞牛 FN ID 地址时，先到 Agent 入口打开对应飞牛地址完成登录。",12,MUTED);
         help.setLineSpacing(dp(3),1);help.setPadding(dp(4),dp(12),dp(4),0);form.addView(help);
         AlertDialog dialog=new AlertDialog.Builder(this).setTitle("聊天入口设置").setView(form).setNegativeButton("取消",null).setNeutralButton("登录服务",null).setPositiveButton("保存",null).create();
         dialog.setOnShowListener(v->{

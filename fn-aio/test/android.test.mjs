@@ -42,19 +42,25 @@ test('安卓悬浮球、双入口及现代返回行为保持隔离',async()=>{
   assert.match(main,/Intent\.ACTION_VIEW/);
   assert.match(main,/shouldInterceptRequest/);
 });
-test('导航入口保存多个网址并切换，不做飞牛登录处理',async()=>{
+test('Agent 入口合并 DSH 与导航，保存多个网址并支持新增修改',async()=>{
   const manifest=await readFile(join(root,'android/app/src/main/AndroidManifest.xml'),'utf8');
   const main=await readFile(join(source,'MainActivity.java'),'utf8');
-  const webEntry=await readFile(join(source,'WebEntryActivity.java'),'utf8');
-  assert.match(manifest,/android:name="\.WebEntryActivity"[^>]*android:exported="true"[^>]*android:launchMode="singleTask"[^>]*android:taskAffinity="top\.fnaio\.direct\.web"/);
-  assert.match(manifest,/android:name="\.WebEntryActivity"[^>]*android:label="导航"/);
-  assert.match(manifest,/android:name="\.WebEntryActivity"[^>]*android:icon="@mipmap\/ic_entry_web"/);
+  const agent=await readFile(join(source,'AgentActivity.java'),'utf8');
+  assert.match(manifest,/android:name="\.AgentActivity"[^>]*android:exported="true"[^>]*android:launchMode="singleTask"[^>]*android:taskAffinity="top\.fnaio\.direct\.agent"/);
+  assert.match(manifest,/android:name="\.AgentActivity"[^>]*android:label="Agent"/);
+  assert.match(manifest,/android:name="\.AgentActivity"[^>]*android:icon="@mipmap\/ic_entry_agent"/);
+  assert.doesNotMatch(manifest,/WebEntryActivity/);
+  assert.doesNotMatch(manifest,/android:name="\.MainActivity"[^>]*android:exported="true"/);
+  assert.match(agent,/protected boolean webEntry\(\) \{ return true; \}/);
   assert.match(main,/protected boolean webEntry\(\) \{ return false; \}/);
   assert.match(main,/getString\("items", null\)/);
   assert.match(main,/activeWebUrl/);
-  assert.match(main,/new AccessRoute\(policy, url, true\)/);
+  assert.match(main,/routeFor\(url\)/);
+  assert.match(main,/nasPolicyFor/);
+  assert.match(main,/修改网址/);
+  assert.match(main,/新增网址/);
   assert.match(main,/切换导航/);
-  assert.doesNotMatch(webEntry,/requiresNasLogin|probe|health|beginRecovery|BuildConfig\.NAS_ORIGIN|BuildConfig\.DIRECT_URL/);
+  assert.match(main,/agentMerged/);
 });
 
 test('Android 访问策略 Java 单元测试',async t=>{

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 网页入口底色：靛蓝渐变，与 DSH 白底、聊天的青绿、工具箱的陶土色区分。 -->
+<!-- Agent 入口底色：深紫蓝渐变，对应 AI 助手入口。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
@@ -10,12 +10,12 @@
         <aapt:attr name="android:fillColor">
             <gradient
                 android:type="linear"
-                android:startX="54"
+                android:startX="0"
                 android:startY="0"
-                android:endX="54"
+                android:endX="108"
                 android:endY="108"
-                android:startColor="#6D5CE6"
-                android:endColor="#4A39B5" />
+                android:startColor="#7B61FF"
+                android:endColor="#35249E" />
         </aapt:attr>
     </path>
 </vector>
