@@ -27,7 +27,7 @@ export function createHandler(store) {
       }
       if (request.method !== 'POST') return Response.json({ message: '仅支持 GET / POST' }, { status: 405, headers: { ...headers, Allow: 'GET, POST' } });
       const site = request.headers.get('sec-fetch-site');
-      if (request.headers.get('x-pocket-kit') !== '1' || (site && !['same-origin', 'none'].includes(site))) throw new NoteError(403, 'csrf_rejected', '请从当前页面操作');
+      if (request.headers.get('x-aside-note') !== '1' || (site && !['same-origin', 'none'].includes(site))) throw new NoteError(403, 'csrf_rejected', '请从当前页面操作');
       if (request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'application/json') throw new NoteError(415, 'unsupported_media_type', '需要 JSON 请求');
       return Response.json(await store.mutate(await readBody(request)), { headers });
     } catch (error) {
@@ -38,5 +38,5 @@ export function createHandler(store) {
 }
 export function apply(ctx, config = {}) {
   const store = createStore({ dataFile: config.dataFile });
-  ctx.effect(() => ctx.connection.fetch.register({ path: '/api/pocket-kit/aside-note', methods: ['GET', 'POST'], requestBody: 'buffered', fetch: createHandler(store) }));
+  ctx.effect(() => ctx.connection.fetch.register({ path: '/api/aside-note', methods: ['GET', 'POST'], requestBody: 'buffered', fetch: createHandler(store) }));
 }

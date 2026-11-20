@@ -79,7 +79,7 @@ test('blank-session fallback keeps aside note visible like the right sidebar but
   const app = await harness(t), props = { useWorkspaces: select => select({ items: [] }) };
   const nonBlank = app.render(app.GlobalHeader, { ...props, usePanelInfo: select => select({ activePanelId: null }), useSessions: select => select({ byId: { s: { id: 's', blank: false, retainedBy: { mainView: 1 } } } }) });
   assert.equal(nonBlank, null);
-  const panelOpen = app.render(app.GlobalHeader, { ...props, usePanelInfo: select => select({ activePanelId: 'pocket-kit.home' }), useSessions: select => select({ byId: { s: { id: 's', blank: true, retainedBy: { mainView: 1 } } } }) });
+  const panelOpen = app.render(app.GlobalHeader, { ...props, usePanelInfo: select => select({ activePanelId: 'aside-note.test-panel' }), useSessions: select => select({ byId: { s: { id: 's', blank: true, retainedBy: { mainView: 1 } } } }) });
   assert.equal(panelOpen, null);
   const blank = app.render(app.GlobalHeader, { ...props, usePanelInfo: select => select({ activePanelId: null }), useSessions: select => select({ byId: { s: { id: 's', blank: true, retainedBy: { mainView: 1 } } } }) });
   assert.equal(blank.props.className, 'pk-an-globalHeader');

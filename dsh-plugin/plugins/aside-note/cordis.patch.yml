@@ -1,0 +1,5 @@
+# 旁边记独立插件：一行 Host（API 与数据存储），浏览器半边由 dsh.client 组合。
+- insert:
+    - id: aside-note
+      name: '@local/aside-note'
+      config: {}

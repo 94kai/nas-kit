@@ -1,12 +1,12 @@
 window.__ModuleLoader__.load({
-  id: '@local/pocket-kit-aside-note',
+  id: '@local/aside-note',
   factory(require) {
     const React = require('react'), h = React.createElement;
     const react = { default: React };
     const ReactDOM = require('react-dom');
     const _deepseek_ai_dsh_client_ui_primitives = require('@deepseek-ai/dsh-client-ui-primitives');
     const SEND_SHORTCUT_DEFAULT = 'enter', CLEAR_CONFIRM_MS = 5000;
-    const PLUGIN_VERSION = '1.7.1 · 工具箱', PLUGIN_AUTHOR = '阿三石（原版）';
+    const PLUGIN_VERSION = '2.0.0 · 独立插件', PLUGIN_AUTHOR = '阿三石（原版）';
     const PLUGIN_REPO_URL = 'https://github.com/Rayle8/dsh-aside-note', PLUGIN_REPO_LABEL = 'github.com/Rayle8/dsh-aside-note';
     const IS_MAC = typeof navigator !== 'undefined' && /mac/i.test(navigator.userAgentData?.platform || navigator.platform || '');
     const MOD_LABEL = IS_MAC ? '⌘' : 'Ctrl';
@@ -30,13 +30,13 @@ window.__ModuleLoader__.load({
       return !kind ? null : kind === 'global' ? { kind, id: 'all' } : { kind, id: kind === 'workspace' ? binding.workspace.workspaceId : binding.sessionId };
     }
     const urlFor = scope => {
-      const url = new URL('api/pocket-kit/aside-note', document.baseURI);
+      const url = new URL('api/aside-note', document.baseURI);
       if (scope) { url.searchParams.set('kind', scope.kind); url.searchParams.set('id', scope.id); }
       return url;
     };
     function HeaderGlyph() { return h('span', { className: 'pk-an-headerIcon', dangerouslySetInnerHTML: { __html: HEADER_ICON } }); }
     function HeaderButton({ count = 0, active, kind, onClick }) {
-      return h('button', { type: 'button', className: 'pk-an-headerBtn', 'data-active': active ? 'true' : 'false', 'data-scope': kind, 'data-pocket-kit-aside-note': 'true', title: count > 0 ? say('header.tooltip', { n: count }) : say('header.tooltipEmpty'), 'aria-label': count > 0 ? `${say('dock.open')}, ${say('dock.count', { n: count })}` : say('dock.open'), 'aria-expanded': !!active, onPointerDown: event => event.stopPropagation(), onClick },
+      return h('button', { type: 'button', className: 'pk-an-headerBtn', 'data-active': active ? 'true' : 'false', 'data-scope': kind, 'data-aside-note': 'true', title: count > 0 ? say('header.tooltip', { n: count }) : say('header.tooltipEmpty'), 'aria-label': count > 0 ? `${say('dock.open')}, ${say('dock.count', { n: count })}` : say('dock.open'), 'aria-expanded': !!active, onPointerDown: event => event.stopPropagation(), onClick },
         h(HeaderGlyph), count > 0 ? h('span', { className: 'pk-an-headerCount' }, count > 99 ? '99+' : String(count)) : null);
     }
     return { inject: ['slots'], apply(ctx) {
@@ -45,7 +45,7 @@ window.__ModuleLoader__.load({
         const controller = new AbortController(); controllers.add(controller);
         const timeout = setTimeout(() => controller.abort(), 20000);
         try {
-          const response = await fetch(urlFor(scope), { method: command ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store', signal: controller.signal, ...(command ? { headers: { 'Content-Type': 'application/json', 'X-Pocket-Kit': '1' }, body: JSON.stringify(command) } : {}) });
+          const response = await fetch(urlFor(scope), { method: command ? 'POST' : 'GET', credentials: 'same-origin', cache: 'no-store', signal: controller.signal, ...(command ? { headers: { 'Content-Type': 'application/json', 'X-Aside-Note': '1' }, body: JSON.stringify(command) } : {}) });
           let result; try { result = await response.json(); } catch { throw new Error('服务返回异常，请检查登录并刷新列表'); }
           if (!response.ok) { const error = new Error(response.status === 401 ? '登录已失效，请重新登录后重试' : result.message || '服务暂不可用'); error.status = response.status; throw error; }
           return result;
@@ -152,7 +152,7 @@ window.__ModuleLoader__.load({
         async function backup() {
           setBusy(true);
           try {
-            const response = await fetch(new URL('api/pocket-kit/aside-note?export=1', document.baseURI), { credentials: 'same-origin', cache: 'no-store' });
+            const response = await fetch(new URL('api/aside-note?export=1', document.baseURI), { credentials: 'same-origin', cache: 'no-store' });
             if (!response.ok) throw new Error('导出失败，请检查登录后重试');
             const blob = await response.blob(), url = URL.createObjectURL(blob), link = document.createElement('a');
             link.href = url; link.download = 'aside-note-backup.json'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -253,7 +253,7 @@ window.__ModuleLoader__.load({
         });
         const error = state.error || preferences.error;
         const status = error || (!scope ? '当前启用的范围不可用，请打开对应工作区/会话，或在设置中启用其他范围' : !record ? '正在加载服务端便笺…' : pending || preferences.pending ? '正在保存到服务端…' : state.dirty || preferences.dirty ? '草稿或设置尚未保存到服务端' : say(scope.kind === 'global' ? 'popover.global' : scope.kind === 'workspace' ? 'popover.shared' : 'popover.storage'));
-        return h('div', { ref: panelRef, className: 'pk-an-popover pk-an-popoverRight', style: geometry.style, role: 'dialog', 'aria-label': say('popover.title'), 'data-pocket-kit-aside-note': 'true' },
+        return h('div', { ref: panelRef, className: 'pk-an-popover pk-an-popoverRight', style: geometry.style, role: 'dialog', 'aria-label': say('popover.title'), 'data-aside-note': 'true' },
           h('div', { className: 'pk-an-resizeHandle', role: 'separator', 'aria-orientation': 'vertical', 'aria-label': say('resize.width'), tabIndex: 0, title: say('resize.hint'), onPointerDown: geometry.startPanelResize, onDoubleClick: () => geometry.commitPanelWidth(360), onKeyDown: geometry.onPanelResizeKeyDown }),
           h('div', { className: 'pk-an-resizeHandleBottom', role: 'separator', 'aria-orientation': 'horizontal', 'aria-label': say('resize.height'), tabIndex: 0, title: say('resize.hint'), onPointerDown: geometry.startPanelHeightResize, onDoubleClick: () => geometry.commitPanelHeight(0), onKeyDown: geometry.onPanelHeightKeyDown }),
           h(PanelHead, { say, openCount: openItems.length, total: items.length, showSettings, onToggleSettings: () => setShowSettings(value => !value), onClose, scopeMode: scope?.kind || prefs.scopeMode, visibleScopes: prefs.visibleScopes, canUseWorkspace: !!binding?.workspace, canUseSession: !!binding?.sessionId, onScopeChange: value => { if (value !== scope?.kind) persist({ scopeMode: value }); } }),
@@ -269,8 +269,8 @@ window.__ModuleLoader__.load({
         const scope = scopeFor(current.binding, preferences.value?.scopeMode || (current.binding?.sessionId ? 'workspace' : 'global'), preferences.value?.visibleScopes);
         return h(React.Fragment, null, h('style', null, css), ReactDOM.createPortal(h(Panel, { scope, binding: current.binding, anchorRef: current.anchorRef, onClose: close }), document.body));
       }
-      ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register({ name: 'conversation.session.header.utilities', id: 'pocket-kit.aside-note', order: 30 }, props => h(Header, props)));
-      ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: 'pocket-kit.aside-note.overlay', order: 70 }, props => h(React.Fragment, null, h(GlobalHeader, props), h(Overlay), h(toastSeat.ToastHost))));
+      ctx.slots.inject('conversation.session.header.utilities', () => ctx.slots.register({ name: 'conversation.session.header.utilities', id: 'aside-note', order: 30 }, props => h(Header, props)));
+      ctx.slots.inject('shell.overlay', () => ctx.slots.register({ name: 'shell.overlay', id: 'aside-note.overlay', order: 70 }, props => h(React.Fragment, null, h(GlobalHeader, props), h(Overlay), h(toastSeat.ToastHost))));
       ctx.effect(() => {
         const unload = event => { if (model.hasUnsaved()) { event.preventDefault(); event.returnValue = ''; } };
         window.addEventListener?.('beforeunload', unload);

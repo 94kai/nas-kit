@@ -1,12 +1,24 @@
-# 旁边记（服务端）
+# 旁边记 · Aside note（独立插件）
+
+`@local/aside-note`：会话/工作区便笺，标题栏入口 + 右侧悬浮框，数据保存在 DSH 服务端。
+
+2.0.0 起从工具箱 `@local/pocket-kit` 抽出为独立安装包：Host 条目 `aside-note`、客户端模块 `@local/aside-note`、业务路由 `/api/aside-note`（请求头 `X-Aside-Note: 1`）。数据仍是 `.local/data/aside-note/notes.json`，因为插件目录与原来处在同一层级，路径和格式都没变，不需要迁移。工具箱 1.8.0 之后的版本不再包含旁边记。
+
+单独安装：
+
+```sh
+# 构建客户端产物后再用插件管理安装本目录
+npm run build
+# plugin_manager install_bundle  target: link:/绝对路径/dsh-plugin/plugins/aside-note
+```
 
 ## 目的与入口
 
-1.7.0 将已安装 `dsh-aside-note@1.1.0` 的便笺业务整合到当前工具箱，不再增加独立安装包。实现位于 `features/aside-note/`；原独立插件保持安装，待用户核对数据后自行卸载。
+1.7.0 曾把已安装 `dsh-aside-note@1.1.0` 的便笺业务并进工具箱；2.0.0 因多设备使用又抽成独立包，实现就在本目录。上游原插件仍建议核对数据后卸载。
 
 - 1.7.1 按用户要求完整对齐原版 UI：会话顶部 28×28 文档图标、16px SVG、右上角 16px 胶囊数量角标；0 隐藏、1–99 原值、100 起显示 99+，统计当前全局/工作区/会话范围的未完成数。标题与 Tooltip 沿用「旁边记」，服务端身份在浮层脚注说明。按用户要求不在工具箱首页展示工具卡；2026-11-14 起入口改为右上角按钮，2026-11-18 起常规会话用顶部栏入口、空白会话用固定回退。
 - 用正式 `conversation.session.header.utilities` Slot 提供顶部栏入口，`shell.overlay` 承载右侧浮层、Toast 和空白会话固定回退；入口不再扫描宿主私有 header class 或改写宿主 DOM；原版几何算法仅读取公开右侧栏 data 属性以避让。入口使用宿主提供的 `useWorkspaces`、`useInput` 和 `inputActions.insertText` 绑定并带回对话。不自动发送、不使用 `setDraft` 覆盖引用芯片。
-- 客户端唯一载体仍为 `@local/pocket-kit`；新增同包 Host 子路径 `@local/pocket-kit/aside-note`，条目 `pocket-kit-aside-note`。关闭此 Host 后 UI 展示服务错误，不转回浏览器存储。
+- 客户端载体为本插件自己的 `@local/aside-note`；Host 条目 `aside-note`（2.0.0 起独立安装）。关闭此 Host 后 UI 展示服务错误，不转回浏览器存储。
 - 直接复用 `dsh-aside-note@1.1.0` 的原版 CSS、PanelHead、ComposerForm、TodoRow、NoteList、设置卡、空态、Toast、定位/拖拽逻辑，原文件 SHA256 记录在 `original-source.json`，MIT 许可随发布包保留。仅隔离 class/CSS 变量与 loading 选择器，避免与尚未卸载的原插件互相干扰；正常状态 CSS 经反向命名并补回原版文件尾空行后的 SHA256 与原版一致（源码去掉多余EOF空行以通过Git空白检查）。
 - 恢复无背景遮罩、默认360px右侧悬浮框、宿主主题圆角/表面/阴影、标题与计数同行、胶囊范围切换、齿轮图标、紧凑添加框与快捷键提示、分区折叠/吸顶/滚动羽化、行内图标、转发小勾、双击编辑及失焦保存、5秒自动收起的行内清除确认、拖拽宽高和键盘/双击复位。删除按钮沿用原版直接删除，不额外弹浏览器确认。
 - 设置保留原快捷键单选、前缀；按用户要求去掉「关于」及品牌说明、版本、作者、源码链接，「数据与迁移」保留为独立入口。原版MIT许可仍随包分发，不以移除关于为由移除署名许可；不查询 npm/GitHub 更新、不重新安装独立插件。迁移/备份/恢复旧编辑草稿只在该设置子区展示，日常主界面不再增加大按钮和多行说明。保留服务端10000字限额，不将1.7.0已有长便笺截成原版280字。只提供中文。
@@ -47,7 +59,7 @@
 通过 DSH Connection 的认证路由 `GET/POST /api/pocket-kit/aside-note`，不另开端口、不允许匿名。
 
 - GET：`kind=global|session|workspace&id=...` 返回记录与 preferences；全局仅接受 `id=all`，其他全局id返回400；`export=1` 返回完整服务端备份（含全局）。偏好 scopeMode 同样支持 global，旧快照/会话/工作区格式保持兼容。
-- POST：JSON，必须 `X-Pocket-Kit: 1`；若有 Sec-Fetch-Site，只允许 same-origin / none。由 Connection 额外校验认证、Host/Origin，兼容外部 HTTPS 到内部 HTTP 桥接。
+- POST：JSON，必须 `X-Aside-Note: 1`；若有 Sec-Fetch-Site，只允许 same-origin / none。由 Connection 额外校验认证、Host/Origin，兼容外部 HTTPS 到内部 HTTP 桥接。
 - 普通命令：`{action,scope:{kind,id},revision,...}`；action 为 add（text）、update（id/text/done）、delete（id）、clear、draft（draft）、forward（id/forwarded）、seed（sessionIds）。返回新记录。
 - preferences：`{action:'preferences',revision,sendShortcut,forwardPrefix,scopeMode,panelWidth?,panelHeight?,sections?,visibleScopes?}`，返回新设置，独立版本冲突保护。1.7.0 请求保持兼容，新字段有服务端验证。
 - import：`{action:'import',data:{sessions?,workspaces?,drafts?,forwarded?,preferences?}}`，不要求旧数据版本号匹配服务端 CAS，内部串行追加；返回 imported / alreadyImported。

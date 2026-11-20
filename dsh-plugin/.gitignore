@@ -15,6 +15,7 @@ node_modules/
 __pycache__/
 *.pyc
 /dist/
+plugins/*/dist/
 **/artifacts/
 *.tgz
 .DS_Store

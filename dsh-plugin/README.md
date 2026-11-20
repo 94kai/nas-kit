@@ -22,15 +22,20 @@
 - **音乐 tab**：跨来源搜索、网易云登录、下载队列、试听、移动/改名/删除、标签/歌词/封面编辑。
 - **小爱音乐 / 小爱控制两个独立页面**：小爱音乐负责播放、曲库、歌单/收藏与定时规则；小爱控制负责播报、小爱指令、音量和快捷控制。
 
-- **旁边记**：会话/工作区便笺、草稿与设置保存到服务端，可跨浏览器使用；原插件浏览器数据需手动一次性迁移，核对后再卸载独立插件。见[旁边记文档](docs/features/aside-note.md)。
+- **旁边记**：已抽成独立插件 `@local/aside-note`（2.0.0 起不在工具箱内），见 [plugins/aside-note](plugins/aside-note/README.md)；数据仍是 `.local/data/aside-note/notes.json`，无需迁移。
 
-一个客户端载体、九个 Host 条目。音乐和小爱从工具箱进入，也可在页面顶部互相切换。后端条目可以单独启停，但不提供进程级隔离；关闭某后端不会自动隐藏相应界面。
+一个客户端载体、八个 Host 条目。音乐和小爱从工具箱进入，也可在页面顶部互相切换。后端条目可以单独启停，但不提供进程级隔离；关闭某后端不会自动隐藏相应界面。
 
 **小爱迁移后默认暂停**，不会自动接管旧音箱服务或执行定时播放。启用前必须停用旧服务的对应 worker、确认 LAN 隔离与端口，并由用户设置本地兼容许可，详见[小爱音箱文档](docs/features/xiaoai.md)。
 
-## 实例配色（`accent/`）
+## 独立插件（`plugins/`）
 
-`accent/` 是独立小插件 `@local/dsh-accent`，不属于工具箱，也不注册任何页面：它在页面 index 里注入一段高特异度 CSS，把侧栏/标题行底色、链接与发送按钮换成一种低饱和识别色，用来区分不同的 DSH 实例。可选配色、每个实例的配置方法和边界见 [accent/README.md](accent/README.md)。
+`plugins/` 放不随工具箱安装的独立插件，各自是独立包、独立安装、独立版本：
+
+- [plugins/accent](plugins/accent/README.md)：`@local/dsh-accent`，在页面 index 注入 CSS，把主背景、侧栏底色、链接与发送按钮换成一种低饱和识别色，用来区分不同的 DSH 实例。
+- [plugins/aside-note](plugins/aside-note/README.md)：`@local/aside-note`，旁边记；2.0.0 起从工具箱抽出，数据路径不变。
+
+这两个包不进工具箱的 `package.json` 导出、`files` 清单和 `scripts/build.mjs` 构建；装了工具箱不等于装了它们，反之亦然。
 
 ## 开发
 

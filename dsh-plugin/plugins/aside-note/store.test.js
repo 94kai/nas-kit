@@ -35,8 +35,8 @@ test('global notes, drafts and preference persist independently from sessions an
   assert.equal((await other.read(workspace)).items.length, 1);
 });
 test('global API accepts only the canonical all id and includes the shared list in backups', async t => {
-  const { store } = await setup(t), handler = createHandler(store), url = 'http://localhost/api/pocket-kit/aside-note';
-  const response = await handler(new Request(url, { method: 'POST', headers: { 'x-pocket-kit': '1', 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', scope: { kind: 'global', id: 'all' }, revision: 0, text: '全局API' }) }));
+  const { store } = await setup(t), handler = createHandler(store), url = 'http://localhost/api/aside-note';
+  const response = await handler(new Request(url, { method: 'POST', headers: { 'x-aside-note': '1', 'content-type': 'application/json' }, body: JSON.stringify({ action: 'add', scope: { kind: 'global', id: 'all' }, revision: 0, text: '全局API' }) }));
   assert.equal(response.status, 200);
   assert.equal((await (await handler(new Request(url + '?kind=global&id=all'))).json()).items[0].text, '全局API');
   assert.equal((await handler(new Request(url + '?kind=global&id=other'))).status, 400);
@@ -165,11 +165,11 @@ test('reject oversized, prototype, invalid scope and invalid completion input', 
   assert.equal((await store.read(session)).revision, 0);
 });
 test('HTTP validates CSRF, content type, payload budget, JSON, method, scope and cache headers', async t => {
-  const { store } = await setup(t), handler = createHandler(store), url = 'http://localhost/api/pocket-kit/aside-note';
+  const { store } = await setup(t), handler = createHandler(store), url = 'http://localhost/api/aside-note';
   const post = (body, headers = {}) => handler(new Request(url, { method: 'POST', headers, body }));
   assert.equal((await post('{}')).status, 403);
-  assert.equal((await post('{}', { 'x-pocket-kit': '1' })).status, 415);
-  const headers = { 'x-pocket-kit': '1', 'content-type': 'application/json' };
+  assert.equal((await post('{}', { 'x-aside-note': '1' })).status, 415);
+  const headers = { 'x-aside-note': '1', 'content-type': 'application/json' };
   assert.equal((await post('{}', { ...headers, 'sec-fetch-site': 'cross-site' })).status, 403);
   assert.equal((await post('bad json', headers)).status, 400);
   assert.equal((await post('x'.repeat(2 * 1024 * 1024 + 1), headers)).status, 413);
@@ -184,6 +184,6 @@ test('HTTP validates CSRF, content type, payload budget, JSON, method, scope and
 test('host registers only an authenticated Connection route and releases it on disposal', () => {
   let registered, disposed = false; const effects = [];
   apply({ effect: fn => effects.push(fn()), connection: { fetch: { register: value => { registered = value; return () => { disposed = true; }; } } } });
-  assert.equal(registered.path, '/api/pocket-kit/aside-note'); assert.equal(registered.requestBody, 'buffered'); assert.deepEqual(registered.methods, ['GET', 'POST']);
+  assert.equal(registered.path, '/api/aside-note'); assert.equal(registered.requestBody, 'buffered'); assert.deepEqual(registered.methods, ['GET', 'POST']);
   effects[0](); assert.equal(disposed, true);
 });

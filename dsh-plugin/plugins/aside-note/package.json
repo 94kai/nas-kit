@@ -1,0 +1,47 @@
+{
+  "name": "@local/aside-note",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "会话/工作区便笺：悬浮在会话右上角，数据保存在 DSH 服务端",
+  "exports": {
+    ".": "./host.js",
+    "./client": "./dist/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "host.js",
+    "store.js",
+    "client.js",
+    "client-model.js",
+    "original-ui.js",
+    "original.css",
+    "original-source.json",
+    "LICENSE.aside-note",
+    "build.mjs",
+    "dist/client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test client.test.js client-model.test.js store.test.js"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-primitives",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-layout"
+      ]
+    }
+  }
+}

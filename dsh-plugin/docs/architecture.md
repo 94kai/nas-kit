@@ -65,7 +65,11 @@ terminal-touch-keys工厂和viewport辅助逻辑纳入根构建，与已有六�
 
 ## 1.7.0 旁边记服务端化
 
-旁边记客户端工厂接入唯一载体，入口用会话顶部栏 `conversation.session.header.utilities`，浮层用 `shell.overlay`；同包新增 `aside-note` Host 子路径，共10个业务Host与1个客户端载体。便笺、草稿、转发标记和设置保存到独立 `.local/data/aside-note/notes.json`，通过带版本的 Connection API 访问，不向浏览器持久化。原独立插件保留，旧浏览器数据通过显式迁移合并。详见[旁边记](features/aside-note.md)。
+旁边记客户端工厂接入唯一载体，入口用会话顶部栏 `conversation.session.header.utilities`，浮层用 `shell.overlay`；同包新增 `aside-note` Host 子路径，共10个业务Host与1个客户端载体。便笺、草稿、转发标记和设置保存到独立 `.local/data/aside-note/notes.json`，通过带版本的 Connection API 访问，不向浏览器持久化。原独立插件保留，旧浏览器数据通过显式迁移合并。详见[旁边记](../plugins/aside-note/README.md)。
+
+## 2.0.0 旁边记抽成独立插件
+
+按多设备使用需要，旁边记从工具箱移到 `plugins/aside-note/`，成为独立安装包 `@local/aside-note`：Host 条目 `aside-note`、客户端模块 `@local/aside-note`、业务路由 `/api/aside-note`。工具箱去掉对应导出、打包条目、patch 行与构建入口，Host 条目降为八个。数据文件仍是 `.local/data/aside-note/notes.json`（新目录与旧目录同层级，路径不变），无需迁移。见[旁边记插件](../plugins/aside-note/README.md)。
 
 ## 1.8.0 移除文件管理
 
