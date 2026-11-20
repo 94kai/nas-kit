@@ -38,9 +38,9 @@ public final class AccessRouteTest {
         check(AccessRoute.backAction(false, true) == AccessRoute.BackAction.GO_BACK);
         check(AccessRoute.backAction(false, false) == AccessRoute.BackAction.CONFIRM_EXIT);
         reject("");
-        reject("http://direct.example/dsh");
-        reject("https://name:secret@direct.example/dsh");
-        reject("https://direct.example/dsh?token=secret");
+        check(new AccessRoute(nas, "http://direct.example:8080/path", true).allows("http://direct.example:8080/path/x"));
+        reject("http://name:secret@direct.example/dsh");
+        check(new AccessRoute(nas, "https://direct.example:1025/dsh?token=secret", true).allows("https://direct.example:1025/dsh?token=secret&x=1"));
         reject("https://direct.example/dsh#token");
         reject("https://direct.example:0/dsh");
         reject("https://direct.example:65536/dsh");

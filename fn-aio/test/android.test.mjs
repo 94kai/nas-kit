@@ -10,7 +10,7 @@ test('安卓端保持独立并禁止危险 WebView 能力',async()=>{
   const manifest=await readFile(join(root,'android/app/src/main/AndroidManifest.xml'),'utf8');
   const main=await readFile(join(source,'MainActivity.java'),'utf8');
   assert.match(manifest,/android:allowBackup="false"/);
-  assert.match(manifest,/android:usesCleartextTraffic="false"/);
+  assert.match(manifest,/android:usesCleartextTraffic="true"/);
   assert.match(main,/setAllowFileAccess\(false\)/);
   assert.match(main,/setAllowContentAccess\(false\)/);
   assert.match(main,/setAcceptThirdPartyCookies\(web, false\)/);
@@ -42,6 +42,19 @@ test('安卓悬浮球、双入口及现代返回行为保持隔离',async()=>{
   assert.match(main,/Intent\.ACTION_VIEW/);
   assert.match(main,/shouldInterceptRequest/);
 });
+test('网页入口只打开用户配置的 HTTPS 域名，不做飞牛登录处理',async()=>{
+  const manifest=await readFile(join(root,'android/app/src/main/AndroidManifest.xml'),'utf8');
+  const main=await readFile(join(source,'MainActivity.java'),'utf8');
+  const webEntry=await readFile(join(source,'WebEntryActivity.java'),'utf8');
+  assert.match(manifest,/android:name="\.WebEntryActivity"[^>]*android:exported="true"[^>]*android:launchMode="singleTask"[^>]*android:taskAffinity="top\.fnaio\.direct\.web"/);
+  assert.match(manifest,/android:name="\.WebEntryActivity"[^>]*android:icon="@mipmap\/ic_entry_web"/);
+  assert.match(main,/protected boolean webEntry\(\) \{ return false; \}/);
+  assert.match(main,/webPrefs\(\)\.getString\("url", ""\)/);
+  assert.match(main,/new AccessRoute\(policy, url, true\)/);
+  assert.match(main,/设置域名/);
+  assert.doesNotMatch(webEntry,/requiresNasLogin|probe|health|beginRecovery|BuildConfig\.NAS_ORIGIN|BuildConfig\.DIRECT_URL/);
+});
+
 test('Android 访问策略 Java 单元测试',async t=>{
   const javac=process.env.JAVA_HOME?join(process.env.JAVA_HOME,'bin/javac'):'javac';
   const java=process.env.JAVA_HOME?join(process.env.JAVA_HOME,'bin/java'):'java';

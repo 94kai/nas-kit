@@ -164,8 +164,7 @@ public class MainActivity extends Activity {
             getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, backCallback);
         }
         try {
-            policy = new AccessPolicy(preferences.getString("origin", BuildConfig.NAS_ORIGIN), preferences.getString("service", "dsh"));
-            route = new AccessRoute(policy, BuildConfig.DIRECT_URL, preferences.getBoolean("directMode", false));
+            initializeRoute();
             ball.setDirect(route.direct);
             openTarget();
         } catch (IllegalArgumentException e) { configure(); }
@@ -186,6 +185,16 @@ public class MainActivity extends Activity {
         TextView label = new TextView(this); label.setText(title); label.setTextSize(14); label.setTextColor(Color.rgb(45, 57, 79)); row.addView(label);
         row.setContentDescription(title); row.setFocusable(true); row.setOnClickListener(v -> action.run()); return row;
     }
+    /** 悬浮球菜单：网页入口只提供「设置域名」，其余入口提供访问方式切换。 */
+    private void populateMenu() {
+        if (webEntry()) {
+            dropdown.addView(menuAction("✎", "设置域名", () -> { setMenuExpanded(false); configureWeb(); }));
+        } else {
+            dropdown.addView(menuAction("⇄", "切换访问方式", () -> { setMenuExpanded(false); chooseAccessMode(); }));
+        }
+        dropdown.addView(menuAction("↻", "刷新当前页面", () -> { setMenuExpanded(false); refreshCurrentPage(); }));
+        dropdown.addView(menuAction("↓", "下载管理", () -> { setMenuExpanded(false); downloads.showManager(); }));
+    }
     private void createFloatingMenu() {
         dropdown = new LinearLayout(this);
         dropdown.setOrientation(LinearLayout.VERTICAL);
@@ -195,9 +204,7 @@ public class MainActivity extends Activity {
         dropdown.setBackground(panelBackground);
         dropdown.setElevation(dp(6));
         dropdown.setVisibility(View.GONE);
-        dropdown.addView(menuAction("⇄", "切换访问方式", () -> { setMenuExpanded(false); chooseAccessMode(); }));
-        dropdown.addView(menuAction("↻", "刷新当前页面", () -> { setMenuExpanded(false); refreshCurrentPage(); }));
-        dropdown.addView(menuAction("↓", "下载管理", () -> { setMenuExpanded(false); downloads.showManager(); }));
+        populateMenu();
         content.addView(dropdown, new FrameLayout.LayoutParams(dp(208), dp(MENU_HEIGHT_DP)));
         ball = new FloatingBall(this);
         ball.setContentDescription("打开悬浮菜单，可拖动调整位置");
@@ -297,8 +304,29 @@ public class MainActivity extends Activity {
     /** 工具箱桌面入口固定进入工具箱首页；默认入口固定不自动进入工具箱。 */
     protected boolean toolboxEntry() { return false; }
 
-    /** DSH 入口地址追加固定参数，避免行为再被上次状态决定。 */
+    /** 「网页」桌面入口固定打开用户配置的 HTTP(S) 域名，不做飞牛登录处理。 */
+    protected boolean webEntry() { return false; }
+
+    /** 按入口构造访问路由；网页入口直接使用本入口保存的域名，始终为 HTTP(S) 直连。 */
+    private void initializeRoute() {
+        if (webEntry()) {
+            String url = webPrefs().getString("url", "");
+            if (url.isEmpty()) throw new IllegalArgumentException("尚未配置网页地址");
+            // 直连模式下 nas 策略不会被读取，仅需要给 AccessRoute 一个合法占位策略。
+            policy = new AccessPolicy("https://localhost", "dsh");
+            route = new AccessRoute(policy, url, true);
+            return;
+        }
+        policy = new AccessPolicy(preferences.getString("origin", BuildConfig.NAS_ORIGIN), preferences.getString("service", "dsh"));
+        route = new AccessRoute(policy, BuildConfig.DIRECT_URL, preferences.getBoolean("directMode", false));
+    }
+
+    /** 网页入口地址只保存在本入口的私有偏好，与 DSH/工具箱入口的访问设置隔离。 */
+    private SharedPreferences webPrefs() { return getSharedPreferences("web_entry", MODE_PRIVATE); }
+
+    /** DSH 入口地址追加固定参数，避免行为再被上次状态决定；网页入口直接返回域名。 */
     private String entryUrl() {
+        if (webEntry()) return route.entry();
         String url = route.entry();
         return url + (url.indexOf('?') < 0 ? "?" : "&") + "toolbox=" + (toolboxEntry() ? "1" : "0");
     }
@@ -381,6 +409,7 @@ public class MainActivity extends Activity {
         });
     }
     private void configure() {
+        if (webEntry()) { configureWeb(); return; }
         LinearLayout form = new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(dp(16), dp(4), dp(16), dp(4));
         EditText origin = new EditText(this); origin.setSingleLine(true); origin.setHint("https://你的FNID.fnos.net");
         origin.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
@@ -395,6 +424,32 @@ public class MainActivity extends Activity {
                 preferences.edit().putString("origin", next.origin).putString("service", next.service).putBoolean("directMode", false).apply();
                 web.clearHistory(); clearHistoryOnFinish = true; dialog.dismiss(); openTarget();
             } catch (IllegalArgumentException e) { origin.setError(e.getMessage()); }
+        })); dialog.show();
+    }
+
+    /** 网页入口设置：保存一个无凭据、无片段的 HTTP(S) 域名/路径（可带查询参数）并直接打开。 */
+    private void configureWeb() {
+        LinearLayout form = new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(dp(16), dp(4), dp(16), dp(4));
+        EditText url = new EditText(this); url.setSingleLine(true); url.setHint("http://10.0.0.2:3080 或 https://example.com/路径");
+        url.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
+        url.setText(webPrefs().getString("url", ""));
+        form.addView(url);
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("网页入口设置（不填写密码或 Token）")
+            .setView(form).setNegativeButton("取消", null).setPositiveButton("保存并打开", null).create();
+        dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            String input = url.getText().toString().trim();
+            if (input.isEmpty()) { url.setError("请输入 HTTP(S) 地址"); return; }
+            try {
+                AccessRoute next = new AccessRoute(new AccessPolicy("https://localhost", "dsh"), input, true);
+                web.stopLoading();
+                policy = next.nas;
+                route = next;
+                webPrefs().edit().putString("url", input).apply();
+                ball.setDirect(true);
+                web.clearHistory(); clearHistoryOnFinish = true;
+                dialog.dismiss(); openTarget();
+                notice("已保存网页入口地址");
+            } catch (IllegalArgumentException e) { url.setError(e.getMessage()); }
         })); dialog.show();
     }
 
