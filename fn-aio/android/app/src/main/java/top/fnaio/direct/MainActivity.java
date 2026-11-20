@@ -47,6 +47,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class MainActivity extends Activity {
@@ -185,10 +186,10 @@ public class MainActivity extends Activity {
         TextView label = new TextView(this); label.setText(title); label.setTextSize(14); label.setTextColor(Color.rgb(45, 57, 79)); row.addView(label);
         row.setContentDescription(title); row.setFocusable(true); row.setOnClickListener(v -> action.run()); return row;
     }
-    /** 悬浮球菜单：网页入口只提供「设置域名」，其余入口提供访问方式切换。 */
+    /** 悬浮球菜单：导航入口只提供「切换导航」，其余入口提供访问方式切换。 */
     private void populateMenu() {
         if (webEntry()) {
-            dropdown.addView(menuAction("✎", "设置域名", () -> { setMenuExpanded(false); configureWeb(); }));
+            dropdown.addView(menuAction("⇄", "切换导航", () -> { setMenuExpanded(false); configureWeb(); }));
         } else {
             dropdown.addView(menuAction("⇄", "切换访问方式", () -> { setMenuExpanded(false); chooseAccessMode(); }));
         }
@@ -304,14 +305,14 @@ public class MainActivity extends Activity {
     /** 工具箱桌面入口固定进入工具箱首页；默认入口固定不自动进入工具箱。 */
     protected boolean toolboxEntry() { return false; }
 
-    /** 「网页」桌面入口固定打开用户配置的 HTTP(S) 域名，不做飞牛登录处理。 */
+    /** 「导航」桌面入口：保存多个网址并切换，不做飞牛登录处理。 */
     protected boolean webEntry() { return false; }
 
-    /** 按入口构造访问路由；网页入口直接使用本入口保存的域名，始终为 HTTP(S) 直连。 */
+    /** 按入口构造访问路由；导航入口使用当前选中的网址，始终为 HTTP(S) 直连。 */
     private void initializeRoute() {
         if (webEntry()) {
-            String url = webPrefs().getString("url", "");
-            if (url.isEmpty()) throw new IllegalArgumentException("尚未配置网页地址");
+            String url = activeWebUrl();
+            if (url == null || url.isEmpty()) throw new IllegalArgumentException("尚未配置网址");
             // 直连模式下 nas 策略不会被读取，仅需要给 AccessRoute 一个合法占位策略。
             policy = new AccessPolicy("https://localhost", "dsh");
             route = new AccessRoute(policy, url, true);
@@ -321,10 +322,10 @@ public class MainActivity extends Activity {
         route = new AccessRoute(policy, BuildConfig.DIRECT_URL, preferences.getBoolean("directMode", false));
     }
 
-    /** 网页入口地址只保存在本入口的私有偏好，与 DSH/工具箱入口的访问设置隔离。 */
+    /** 导航网址列表与当前选中项保存在本入口私有偏好，与 DSH/工具箱入口隔离。 */
     private SharedPreferences webPrefs() { return getSharedPreferences("web_entry", MODE_PRIVATE); }
 
-    /** DSH 入口地址追加固定参数，避免行为再被上次状态决定；网页入口直接返回域名。 */
+    /** DSH 入口地址追加固定参数，避免行为再被上次状态决定；导航入口直接返回域名。 */
     private String entryUrl() {
         if (webEntry()) return route.entry();
         String url = route.entry();
@@ -427,30 +428,115 @@ public class MainActivity extends Activity {
         })); dialog.show();
     }
 
-    /** 网页入口设置：保存一个无凭据、无片段的 HTTP(S) 域名/路径（可带查询参数）并直接打开。 */
+    /** 导航入口：列出已保存网址，点按切换、长按删除、可新增。 */
     private void configureWeb() {
+        JSONArray items = webItems();
+        int active = webPrefs().getInt("active", 0);
+        LinearLayout body = new LinearLayout(this); body.setOrientation(LinearLayout.VERTICAL);
+        final AlertDialog[] ref = new AlertDialog[1];
+        if (items.length() == 0) {
+            TextView empty = new TextView(this); empty.setText("还没有保存的网址，点「新增」添加第一个");
+            empty.setTextSize(15); empty.setTextColor(Color.rgb(117, 130, 127)); empty.setPadding(dp(14), dp(16), dp(14), dp(16));
+            body.addView(empty);
+        }
+        for (int i = 0; i < items.length(); i++) {
+            final int index = i;
+            JSONObject item = items.optJSONObject(i);
+            String name = item.optString("name", ""), url = item.optString("url", "");
+            LinearLayout row = new LinearLayout(this); row.setOrientation(LinearLayout.VERTICAL);
+            row.setPadding(dp(14), dp(10), dp(14), dp(10));
+            row.setBackground(new RippleDrawable(ColorStateList.valueOf(Color.argb(24, 63, 94, 151)), background(Color.TRANSPARENT, 10), null));
+            TextView title = new TextView(this); title.setText((index == active ? "● " : "○ ") + (name.isEmpty() ? url : name));
+            title.setTextSize(16); title.setTextColor(Color.rgb(45, 57, 79));
+            title.setTypeface(null, index == active ? android.graphics.Typeface.BOLD : android.graphics.Typeface.NORMAL);
+            row.addView(title);
+            TextView sub = new TextView(this); sub.setText(url); sub.setTextSize(12); sub.setTextColor(Color.rgb(117, 130, 127));
+            sub.setSingleLine(true); sub.setEllipsize(android.text.TextUtils.TruncateAt.END); row.addView(sub);
+            row.setOnClickListener(v -> { persistWebItems(items, index); if (ref[0] != null) ref[0].dismiss(); openWebAt(index); });
+            row.setOnLongClickListener(v -> {
+                String label = name.isEmpty() ? url : name;
+                new AlertDialog.Builder(this).setTitle("删除网址").setMessage("删除「" + label + "」？")
+                    .setNegativeButton("取消", null).setPositiveButton("删除", (d, w) -> {
+                        items.remove(index);
+                        int next;
+                        if (items.length() == 0) next = -1;
+                        else if (index < active) next = active - 1;
+                        else if (index == active) next = Math.min(index, items.length() - 1);
+                        else next = active;
+                        persistWebItems(items, next);
+                        if (ref[0] != null) ref[0].dismiss();
+                        configureWeb();
+                    }).show();
+                return true;
+            });
+            body.addView(row);
+        }
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this); scroll.addView(body);
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("切换导航").setView(scroll)
+            .setNegativeButton("取消", null).setNeutralButton("新增", (d, w) -> showWebEditor(items)).create();
+        ref[0] = dialog; dialog.show();
+    }
+
+    /** 新增一个网址：名称可选，地址必须是无凭据、无片段的 HTTP(S) 地址。 */
+    private void showWebEditor(JSONArray items) {
         LinearLayout form = new LinearLayout(this); form.setOrientation(LinearLayout.VERTICAL); form.setPadding(dp(16), dp(4), dp(16), dp(4));
-        EditText url = new EditText(this); url.setSingleLine(true); url.setHint("http://10.0.0.2:3080 或 https://example.com/路径");
-        url.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI);
-        url.setText(webPrefs().getString("url", ""));
-        form.addView(url);
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("网页入口设置（不填写密码或 Token）")
-            .setView(form).setNegativeButton("取消", null).setPositiveButton("保存并打开", null).create();
+        EditText name = new EditText(this); name.setSingleLine(true); name.setHint("名称（可选），如：NAS 面板"); form.addView(name);
+        EditText url = new EditText(this); url.setSingleLine(true); url.setHint("http://10.0.0.2:3080 或 https://example.com/路径?x=1");
+        url.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_URI); form.addView(url);
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("新增网址")
+            .setView(form).setNegativeButton("取消", null).setPositiveButton("保存", null).create();
         dialog.setOnShowListener(d -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            String input = url.getText().toString().trim();
-            if (input.isEmpty()) { url.setError("请输入 HTTP(S) 地址"); return; }
-            try {
-                AccessRoute next = new AccessRoute(new AccessPolicy("https://localhost", "dsh"), input, true);
-                web.stopLoading();
-                policy = next.nas;
-                route = next;
-                webPrefs().edit().putString("url", input).apply();
-                ball.setDirect(true);
-                web.clearHistory(); clearHistoryOnFinish = true;
-                dialog.dismiss(); openTarget();
-                notice("已保存网页入口地址");
-            } catch (IllegalArgumentException e) { url.setError(e.getMessage()); }
+            String urlText = url.getText().toString().trim();
+            if (urlText.isEmpty()) { url.setError("请输入 HTTP(S) 地址"); return; }
+            try { new AccessRoute(new AccessPolicy("https://localhost", "dsh"), urlText, true); }
+            catch (IllegalArgumentException e) { url.setError(e.getMessage()); return; }
+            JSONObject obj = new JSONObject();
+            try { obj.put("name", name.getText().toString().trim()).put("url", urlText); } catch (Exception ignored) {}
+            items.put(obj);
+            int target = items.length() - 1;
+            persistWebItems(items, target);
+            dialog.dismiss(); openWebAt(target);
         })); dialog.show();
+    }
+
+    /** 切到列表中的第 index 个网址并刷新页面。 */
+    private void openWebAt(int index) {
+        JSONArray items = webItems();
+        if (index < 0 || index >= items.length()) return;
+        String url = items.optJSONObject(index).optString("url", "");
+        if (url.isEmpty()) return;
+        try {
+            AccessRoute next = new AccessRoute(new AccessPolicy("https://localhost", "dsh"), url, true);
+            web.stopLoading(); policy = next.nas; route = next; ball.setDirect(true);
+            web.clearHistory(); clearHistoryOnFinish = true; openTarget();
+        } catch (IllegalArgumentException e) { notice(e.getMessage()); }
+    }
+
+    /** 读取保存的网址列表（兼容旧版单条 url 迁移）。 */
+    private JSONArray webItems() {
+        SharedPreferences prefs = webPrefs();
+        String stored = prefs.getString("items", null);
+        if (stored != null) { try { return new JSONArray(stored); } catch (Exception e) { return new JSONArray(); } }
+        String legacy = prefs.getString("url", "");
+        if (legacy.isEmpty()) return new JSONArray();
+        JSONArray items = new JSONArray();
+        try {
+            items.put(new JSONObject().put("name", "").put("url", legacy));
+            prefs.edit().remove("url").putString("items", items.toString()).putInt("active", 0).apply();
+        } catch (Exception ignored) {}
+        return items;
+    }
+
+    /** 当前选中的网址，无则返回 null。 */
+    private String activeWebUrl() {
+        JSONArray items = webItems();
+        int active = webPrefs().getInt("active", 0);
+        if (active < 0 || active >= items.length()) return null;
+        return items.optJSONObject(active).optString("url", "");
+    }
+
+    private void persistWebItems(JSONArray items, int active) {
+        webPrefs().edit().putString("items", items.toString()).putInt("active", active).apply();
     }
 
     /** Internal links stay in WebView; external user links open the system browser. */

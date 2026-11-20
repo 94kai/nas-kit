@@ -25,7 +25,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity tools:ignore="UnusedAttribute" android:name=".WebEntryActivity" android:exported="true" android:launchMode="singleTask" android:taskAffinity="top.fnaio.direct.web" android:label="网页" android:icon="@mipmap/ic_entry_web" android:roundIcon="@mipmap/ic_entry_web" android:windowSoftInputMode="adjustResize" android:enableOnBackInvokedCallback="true" android:configChanges="orientation|screenSize|keyboardHidden">
+        <activity tools:ignore="UnusedAttribute" android:name=".WebEntryActivity" android:exported="true" android:launchMode="singleTask" android:taskAffinity="top.fnaio.direct.web" android:label="导航" android:icon="@mipmap/ic_entry_web" android:roundIcon="@mipmap/ic_entry_web" android:windowSoftInputMode="adjustResize" android:enableOnBackInvokedCallback="true" android:configChanges="orientation|screenSize|keyboardHidden">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

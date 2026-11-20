@@ -42,16 +42,18 @@ test('安卓悬浮球、双入口及现代返回行为保持隔离',async()=>{
   assert.match(main,/Intent\.ACTION_VIEW/);
   assert.match(main,/shouldInterceptRequest/);
 });
-test('网页入口只打开用户配置的 HTTPS 域名，不做飞牛登录处理',async()=>{
+test('导航入口保存多个网址并切换，不做飞牛登录处理',async()=>{
   const manifest=await readFile(join(root,'android/app/src/main/AndroidManifest.xml'),'utf8');
   const main=await readFile(join(source,'MainActivity.java'),'utf8');
   const webEntry=await readFile(join(source,'WebEntryActivity.java'),'utf8');
   assert.match(manifest,/android:name="\.WebEntryActivity"[^>]*android:exported="true"[^>]*android:launchMode="singleTask"[^>]*android:taskAffinity="top\.fnaio\.direct\.web"/);
+  assert.match(manifest,/android:name="\.WebEntryActivity"[^>]*android:label="导航"/);
   assert.match(manifest,/android:name="\.WebEntryActivity"[^>]*android:icon="@mipmap\/ic_entry_web"/);
   assert.match(main,/protected boolean webEntry\(\) \{ return false; \}/);
-  assert.match(main,/webPrefs\(\)\.getString\("url", ""\)/);
+  assert.match(main,/getString\("items", null\)/);
+  assert.match(main,/activeWebUrl/);
   assert.match(main,/new AccessRoute\(policy, url, true\)/);
-  assert.match(main,/设置域名/);
+  assert.match(main,/切换导航/);
   assert.doesNotMatch(webEntry,/requiresNasLogin|probe|health|beginRecovery|BuildConfig\.NAS_ORIGIN|BuildConfig\.DIRECT_URL/);
 });
 
