@@ -65,7 +65,7 @@ window.__ModuleLoader__.load({
     };
 
     const css = `
-.fb-page{--fb-accent:var(--dsw-alias-state-business-primary,#5a6cf0);--fb-ink:var(--dsw-alias-label-primary,#20222a);--fb-muted:var(--dsw-alias-label-secondary,#6b7280);--fb-faint:var(--dsw-alias-label-tertiary,#9aa0ab);--fb-line:var(--dsw-alias-border-l3,#e8e8ee);--fb-hover:var(--dsw-alias-interactive-bg-hover,#f2f2f6);--fb-active:var(--dsw-alias-interactive-bg-active,#e9e9f2);box-sizing:border-box;height:100%;overflow:auto;padding:28px clamp(16px,4vw,40px) 32px;color:var(--fb-ink);background:var(--dsw-alias-bg-base,#fff);font:14px/1.5 system-ui,-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
+.fb-page{--fb-accent:var(--dsw-alias-state-business-primary,#5a6cf0);--fb-ink:var(--dsw-alias-label-primary,#20222a);--fb-muted:var(--dsw-alias-label-secondary,#6b7280);--fb-faint:var(--dsw-alias-label-tertiary,#9aa0ab);--fb-line:var(--dsw-alias-border-l3,#e8e8ee);--fb-hover:var(--dsw-alias-interactive-bg-hover,#f2f2f6);--fb-active:var(--dsw-alias-interactive-bg-active,#e9e9f2);box-sizing:border-box;height:100%;overflow:auto;padding:28px clamp(16px,4vw,40px) max(32px,calc(env(safe-area-inset-bottom) + 20px));color:var(--fb-ink);background:var(--dsw-alias-bg-base,#fff);font:14px/1.5 system-ui,-apple-system,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
 .fb-page *,.fb-page *::before,.fb-page *::after{box-sizing:border-box}
 .fb-page :is(button,.fb-crumbs):focus-visible{outline:2px solid var(--fb-accent);outline-offset:2px}
 .fb-inner{max-width:900px;margin:0 auto}
@@ -98,7 +98,8 @@ window.__ModuleLoader__.load({
 @media(hover:hover){.fb-row:hover:not(:disabled){background:var(--fb-hover)}}
 .fb-icon{display:grid;place-items:center;flex:none;width:20px;height:20px;color:var(--fb-faint)}
 .fb-icon[data-kind=dir]{color:var(--fb-accent)}
-.fb-name{display:flex;align-items:center;gap:5px;flex:1 1 auto;min-width:0;overflow:hidden;font-size:13.5px;white-space:nowrap;text-overflow:ellipsis}
+.fb-name{display:flex;align-items:center;gap:5px;flex:1 1 auto;min-width:0;overflow:hidden;font-size:13.5px}
+.fb-name-text{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .fb-link{flex:none;color:var(--fb-faint);font-size:11px}
 .fb-meta{flex:none;color:var(--fb-faint);font-size:11.5px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .fb-chev{flex:none;margin-left:2px;color:var(--fb-faint);font-size:15px;line-height:1}
@@ -113,7 +114,8 @@ window.__ModuleLoader__.load({
 @keyframes fb-shimmer{0%{background-position:100% 0}100%{background-position:-120% 0}}
 .fb-foot{display:flex;justify-content:space-between;gap:12px;margin:14px 2px 0;color:var(--fb-faint);font-size:11.5px}
 .fb-foot span:last-child{text-align:right}
-@media(max-width:720px){.fb-page{padding:18px 14px 26px}.fb-head{margin-bottom:16px}.fb-title p{display:none}.fb-mark{width:38px;height:38px;border-radius:12px}.fb-title h1{font-size:20px}.fb-ghost{min-height:32px;padding:5px 10px}.fb-row{min-height:48px;padding:9px 8px}.fb-name{font-size:14px}.fb-meta{font-size:11px}.fb-crumb,.fb-crumb-current{max-width:140px}}
+@media(max-width:720px){.fb-page{padding:18px 14px max(26px,calc(env(safe-area-inset-bottom) + 16px))}.fb-head{margin-bottom:16px}.fb-title p{display:none}.fb-mark{width:38px;height:38px;border-radius:12px}.fb-title h1{font-size:20px}.fb-name{font-size:14px}.fb-meta{font-size:11px}.fb-crumb,.fb-crumb-current{max-width:140px}}
+@media(max-width:720px),(pointer:coarse){.fb-nav{width:44px;height:44px}.fb-ghost{min-height:44px;padding:8px 14px}.fb-row{min-height:48px;padding:9px 8px}.fb-crumb{display:flex;align-items:center;min-height:44px;padding:6px}.fb-crumb-current{display:flex;align-items:center;min-height:44px}}
 @media(prefers-reduced-motion:reduce){.fb-progress::after,.fb-skel span{animation:none}.fb-progress{display:none}}
 `;
 
@@ -374,7 +376,7 @@ window.__ModuleLoader__.load({
             },
               h('span', { className: 'fb-icon', 'data-kind': entry.kind, 'aria-hidden': true }, glyphOf(entry)),
               h('span', { className: 'fb-name' },
-                entry.name,
+                h('span', { className: 'fb-name-text' }, entry.name),
                 entry.link ? h('span', { className: 'fb-link', title: tr('link'), 'aria-label': tr('link') }, '↗') : null),
               metaOf(entry) ? h('span', { className: 'fb-meta' }, metaOf(entry)) : null,
               entry.kind === 'dir' ? h('span', { className: 'fb-chev', 'aria-hidden': true }, '›') : null,
