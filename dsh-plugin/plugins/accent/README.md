@@ -35,7 +35,11 @@
     accent: sea
 ```
 
-匹配 id 的条目会整体替换 `config`，改完刷新页面即可。未知配色会退回 `moss`，并在 Host 日志里提示可选值。
+匹配 id 的条目会整体替换 `config`，改完刷新页面即可。未知配色会退回 `rose`，并在 Host 日志里提示可选值。
+
+也可以直接在 GUI 里换：**设置 → 通用 → 实例配色**，点色块立刻生效，选择存在当前浏览器的 `localStorage`（`dsh-accent.choice`），点「跟随配置」就回到 profile 里的 `accent`。浏览器里的选择优先于配置——它写在 body 的内联 token 上，压过 head 里注入的那段 CSS。
+
+两处色值需要同步：`index.js` 的 `ACCENTS` 是 Host 注入的默认配色，`client.js` 的 `ACCENTS` 供设置面板即时切换。改配色时两个文件一起改。
 
 ## 实现
 
@@ -49,7 +53,7 @@ Host 半边监听 `webserver/index-inject`，在页面 `<head>` 里注入一段 
 | `--dsw-alias-state-business-primary` | 链接、选中态、焦点环 |
 | `--dsw-alias-button-info-fill` / `-hover` | 发送按钮与信息按钮 |
 
-选择器比主题样式表的 `body` 规则更具体，所以客户端后注入的调色板压不掉它；深色模式走 `html body[data-ds-dark-theme]`。没有客户端脚本，首屏就是目标色，不会先闪一下默认配色。
+选择器比主题样式表的 `body` 规则更具体，所以客户端后注入的调色板压不掉它；深色模式走 `html body[data-ds-dark-theme]`。没有客户端脚本参与默认配色，首屏就是目标色，不会先闪一下默认配色；只有在设置里手动选过颜色时，浏览器才会用 `ctx.theme` 叠一层覆盖。
 
 ## 安装
 
