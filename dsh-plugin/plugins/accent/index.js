@@ -4,14 +4,15 @@
  * 跟随 DSH 的明暗切换自动生效，不需要客户端脚本。
  */
 
-/** 可选配色。每项：强调色、悬停色、侧栏底、主背景，均为 [浅色, 深色]。 */
+/** 可选配色。每项：强调色、悬停色、侧栏底、主背景、输入框，均为 [浅色, 深色]。 */
 const ACCENTS = {
-  // 玫瑰粉：中性的粉调，明确但不甜腻（默认）
+  // 玫瑰粉：中性的粉调，输入框比主背景再深一档（默认）
   rose: {
     accent: ['#82354f', '#db94ac'],
     hover: ['#702e44', '#d47d9a'],
     sidebar: ['#f0d8e0', '#321b23'],
     base: ['#f9f0f3', '#1e1015'],
+    input: ['#f4e3e9', '#362329'],
   },
   // 苔绿：温润的灰绿，最安静的一档
   moss: {
@@ -19,6 +20,7 @@ const ACCENTS = {
     hover: ['#2c6852', '#80b4a1'],
     sidebar: ['#e7f1ed', '#1a2d26'],
     base: ['#f6fbf9', '#101d18'],
+    input: ['#e3f4ee', '#23362f'],
   },
   // 雾青：偏冷的青灰，和默认的蓝区分得开
   sea: {
@@ -26,6 +28,7 @@ const ACCENTS = {
     hover: ['#295d6a', '#80aab4'],
     sidebar: ['#e7eff1', '#1a292d'],
     base: ['#f6fafb', '#101a1d'],
+    input: ['#e3f1f4', '#233336'],
   },
   // 青灰：安静的靛蓝，颜色最深、最沉
   slate: {
@@ -33,6 +36,7 @@ const ACCENTS = {
     hover: ['#2f316a', '#8587b4'],
     sidebar: ['#e7e7f1', '#1a1b2d'],
     base: ['#f6f6fb', '#10111d'],
+    input: ['#e3e4f4', '#232336'],
   },
   // 陶土：偏暖的赭石，浅色下像旧纸
   clay: {
@@ -40,6 +44,7 @@ const ACCENTS = {
     hover: ['#73432b', '#bc9683'],
     sidebar: ['#f1eae7', '#2d211a'],
     base: ['#fbf8f6', '#1d1410'],
+    input: ['#f4e9e3', '#362923'],
   },
   // 灰紫：低饱和的藕紫，深色下最柔和
   plum: {
@@ -47,15 +52,17 @@ const ACCENTS = {
     hover: ['#6a3465', '#b785b3'],
     sidebar: ['#f1e7f0', '#2d1a2b'],
     base: ['#fbf6fa', '#1d101c'],
+    input: ['#f4e3f3', '#362335'],
   },
 };
 
 const DEFAULT_ACCENT = 'rose';
 
 /** 深层 token 引用：选择器比主题样式表的 body 规则更具体，晚注入的调色板也压不掉。 */
-function paletteCss({ accent, hover, sidebar, base }) {
+function paletteCss({ accent, hover, sidebar, base, input }) {
   const declare = (mode) => [
     `--dsw-alias-bg-base:${base[mode]}`,
+    `--dsw-specific-input-major:${input[mode]}`,
     `--dsw-specific-sidebar-fill:${sidebar[mode]}`,
     `--dsw-alias-state-business-primary:${accent[mode]}`,
     `--dsw-alias-button-info-fill:${accent[mode]}`,
