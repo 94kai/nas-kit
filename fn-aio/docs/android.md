@@ -1,4 +1,11 @@
-# Android「Agent」0.11.3
+# Android「Agent」0.11.4
+
+## 文件多选修复（0.11.4）
+
+- 用户反馈 WebView 页面里的文件/图片选择器“单选可以、多选点确定没反应”，DSH 输入框的加号同样如此。
+- 根因在 WebView 宿主而不是网页：`WebChromeClient.FileChooserParams.parseResult()` 的 Chromium 实现只读 `Intent.getData()`；系统文档选择器多选时把全部 URI 放在 `ClipData` 里、`getData()` 为空，于是结果被当成“取消”，网页连 `change` 都收不到。
+- 修复：`MainActivity` 自己解析选择结果，先取 `ClipData` 的全部 URI，再退回单个 `data.getData()`；单选路径不变。网页侧不改协议，不提升权限。
+- 版本 **0.11.4（versionCode 36）**。编译与 Lint 通过；已生成调试 APK，多选回传仍需真机验收。
 
 ## 三个桌面入口（0.11.3）
 

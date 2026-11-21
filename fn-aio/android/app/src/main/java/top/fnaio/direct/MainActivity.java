@@ -810,11 +810,36 @@ public class MainActivity extends Activity {
         }
     }
     @Override public void onBackPressed() { handleBack(); }
+    /**
+     * 自己解析选择器结果，不用 WebChromeClient.FileChooserParams.parseResult：
+     * Chromium 的实现只读取 Intent.getData()，而 DocumentsUI 多选时把全部 URI 放在
+     * ClipData 里、getData() 为空，parseResult 会返回 null，页面收到的是“取消”，
+     * 表现就是多选点确定没反应（单选 getData() 有值，所以正常）。
+     */
+    private static Uri[] pickedFiles(int result, Intent data) {
+        if (result != Activity.RESULT_OK || data == null) return null;
+        ClipData clip = data.getClipData();
+        if (clip != null) {
+            Uri[] uris = new Uri[clip.getItemCount()];
+            int count = 0;
+            for (int i = 0; i < uris.length; i++) {
+                Uri uri = clip.getItemAt(i).getUri();
+                if (uri != null) uris[count++] = uri;
+            }
+            if (count > 0) {
+                Uri[] picked = new Uri[count];
+                System.arraycopy(uris, 0, picked, 0, count);
+                return picked;
+            }
+        }
+        Uri single = data.getData();
+        return single == null ? null : new Uri[] { single };
+    }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
         if (downloads.activityResult(request, result, data)) return;
         if (request == FILE_PICKER && fileCallback != null) {
-            fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result, data)); fileCallback = null;
+            fileCallback.onReceiveValue(pickedFiles(result, data)); fileCallback = null;
         }
     }
     @Override protected void onResume() {

@@ -1,5 +1,14 @@
 # 验证与部署记录
 
+## 2026-11-22：Android「Agent」0.11.4（修复 WebView 文件选择器多选无效）
+
+- 用户反馈 WebView 页面（右侧栏文件浏览、DSH 输入框加号）单选正常、一次选多张点确定没反应。
+- 根因在宿主：`WebChromeClient.FileChooserParams.parseResult()` 的 Chromium 实现（`AwContentsClient.parseFileChooserResult`）只读 `Intent.getData()`；系统文档选择器多选时 URI 全在 `ClipData`、`getData()` 为空，于是返回 null 被当成取消，网页收不到 `change`。
+- 修复：`MainActivity` 新增 `pickedFiles()`，优先展开 `ClipData` 的全部 URI，再退回单个 `getData()`；`onActivityResult` 改用该方法。未改网页协议、权限或 Intent 类型。
+- 版本 **0.11.4（versionCode 36）**。构建成功：`:app:assembleDebug :app:lintDebug`，Lint **0 errors, 15 warnings**；`aapt` 仍是 Agent、聊天、工具箱三个 launchable；v2 调试签名证书 SHA-256 与旧包一致（`782afa8b…10852`）。
+- 交付 APK：`.local/agent-0.11.4-20261122-073702-debug.apk`（121 KiB，SHA256 `5de984785b38b8342e6b481aa430b26f797929d706a2dc3b6cede46bcfc018f4`），与构建输出一致。
+- 未安装手机；多选回传、加号多选与网页上传需真机验收。
+
 ## 2026-11-21：Android「Agent」0.11.3（修复拖动排序后数据覆盖/误刷新）
 
 - 用户反馈拖动排序后会丢数据。检查后按三条路径修复：拖动结束后 500–700ms 内抑制随后的行点击、铅笔点击和长按，避免拖动被误判成切换网址并重新加载当前页；编辑、删除、新增一律从 `web_entry` 重新读取最新列表，不再用弹窗创建时的旧数组写回；排序改为按目标位置重建 JSON 数组并校验长度，避免 remove/put 的索引或异常导致条目缺失。
