@@ -1,0 +1,5 @@
+# 文件浏览独立插件：一行 Host（只读目录列举），页面与左侧栏入口由 dsh.client 组合。
+- insert:
+    - id: file-browser
+      name: '@local/file-browser'
+      config: {}

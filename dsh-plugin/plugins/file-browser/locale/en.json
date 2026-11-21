@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "File browser",
+    "description": "A global Files page in the left sidebar: browse any directory on this machine and open a file in the right sidebar preview. Read-only."
+  }
+}
