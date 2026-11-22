@@ -1,0 +1,6 @@
+# 文件树“上一级”独立插件：Host 只是让客户端被组合进来的空载体；
+# 界面由客户端注册到 dsh-better-sidebar 的文件行菜单。
+- insert:
+    - id: file-parent
+      name: '@local/file-parent'
+      config: {}
