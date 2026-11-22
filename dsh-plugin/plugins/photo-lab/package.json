@@ -1,0 +1,43 @@
+{
+  "name": "@local/photo-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "修图工作台：会话绑定的照片批处理面板，AI 初筛、拍板、修图、前后对比",
+  "exports": {
+    ".": "./host.js",
+    "./client": "./dist/client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "host.js",
+    "lib",
+    "client.js",
+    "build.mjs",
+    "dist/client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "docs",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "sharp": "^0.34.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  }
+}

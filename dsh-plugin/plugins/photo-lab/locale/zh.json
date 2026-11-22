@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "修图工作台",
+    "description": "会话绑定的照片批处理面板：AI 初筛、人工拍板、按风格修图、前后对比与导出。",
+    "detail": "docs/DETAIL.md"
+  }
+}

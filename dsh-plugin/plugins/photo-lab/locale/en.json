@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Photo workbench",
+    "description": "Session-bound photo triage and grading panel: AI shortlist, review, graded previews, before/after compare and export.",
+    "detail": "docs/DETAIL.md"
+  }
+}

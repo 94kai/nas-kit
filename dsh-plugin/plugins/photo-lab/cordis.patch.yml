@@ -1,0 +1,4 @@
+- insert:
+    - id: photo-lab
+      name: '@local/photo-lab'
+      config: {}
