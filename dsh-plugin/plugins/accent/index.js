@@ -89,18 +89,19 @@ function cssString(text) {
  * 只依赖 `[data-composer-card]` 和强调色 token，DSH 换结构后最坏是名牌消失，不影响输入。
  * @param device 行配置里的 `device`：`name` 是名牌文字，`mark` 可覆盖它（短名或 emoji）。
  */
-function deviceCss(device) {
+function deviceCss(device, plain) {
   if (device === null || typeof device !== 'object') return '';
   const name = typeof device.name === 'string' ? device.name.trim() : '';
   const mark = typeof device.mark === 'string' && device.mark.trim() !== '' ? device.mark.trim() : name;
   if (mark === '') return '';
 
-  const accent = 'var(--dsw-alias-state-business-primary)';
+  // 原版配色下不跟主题的蓝色走，改用正文色做一枚中性灰胶囊，任何主题里都不会发灰发蓝。
+  const tone = plain ? 'var(--dsw-alias-label-primary)' : 'var(--dsw-alias-state-business-primary)';
   // 输入卡原本只有 8px 上边距，胶囊压进去的那半截会紧贴附件缩略图；这里把上边距加厚，
   // 内容整体下移，胶囊仍然一半压在边框上，但和内容之间留出呼吸感。
-  return `html body{--dsh-device-mark:${cssString(mark)}}`
+  return `html body{--dsh-device-mark:${cssString(mark)};--dsh-device-tone:${tone}}`
     + `html body [data-composer-card]{padding-top:14px}`
-    + `[data-composer-card]::after{content:var(--dsh-device-mark);position:absolute;top:-9px;left:12px;z-index:1;display:flex;align-items:center;height:18px;padding:0 9px;border-radius:999px;font-size:10.5px;font-weight:600;letter-spacing:.06em;line-height:1;white-space:nowrap;color:${accent};background:color-mix(in srgb,${accent} 9%,var(--dsw-alias-bg-base));border:.5px solid color-mix(in srgb,${accent} 26%,transparent);box-shadow:0 1px 3px rgb(0 0 0/.06);pointer-events:none;user-select:none}`;
+    + `[data-composer-card]::after{content:var(--dsh-device-mark);position:absolute;top:-9px;left:12px;z-index:1;display:flex;align-items:center;height:18px;padding:0 9px;border-radius:999px;font-size:10.5px;font-weight:600;letter-spacing:.06em;line-height:1;white-space:nowrap;color:var(--dsh-device-tone,${tone});background:color-mix(in srgb,var(--dsh-device-tone,${tone}) 9%,var(--dsw-alias-bg-base));border:.5px solid color-mix(in srgb,var(--dsh-device-tone,${tone}) 26%,transparent);box-shadow:0 1px 3px rgb(0 0 0/.06);pointer-events:none;user-select:none}`;
 }
 
 export const inject = ['connection'];
@@ -145,7 +146,7 @@ export function apply(ctx, config) {
   // 两段分开注入：配色那段带标记，客户端「原版」选项直接把它整条禁用，胶囊不受影响。
   ctx.on('webserver/index-inject', (table) => {
     if (!PLAIN_ACCENTS.has(asked)) table.push({ kind: 'style', text: PALETTE_MARK + paletteCss(ACCENTS[asked] ?? ACCENTS[DEFAULT_ACCENT]) });
-    const marks = deviceCss(device);
+    const marks = deviceCss(device, PLAIN_ACCENTS.has(asked));
     if (marks !== '') table.push({ kind: 'style', text: DEVICE_MARK + marks });
   });
 

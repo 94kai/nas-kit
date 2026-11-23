@@ -162,6 +162,10 @@ body[data-accent-device=off] [data-composer-card]::after{display:none}`;
           }
           const sheet = paletteSheet();
           if (sheet !== null) sheet.disabled = name === 'none';
+          // 原版配色下胶囊改用正文色（中性灰）；选了具体颜色就跟着那套强调色走。
+          if (name === 'none') document.body.style.setProperty('--dsh-device-tone', 'var(--dsw-alias-label-primary)');
+          else if (name === '') document.body.style.removeProperty('--dsh-device-tone');
+          else document.body.style.setProperty('--dsh-device-tone', 'var(--dsw-alias-state-business-primary)');
           if (name === '' || name === 'none') return;
           layer = ctx.theme.overrideTokens('@local/dsh-accent', tokensFor(ACCENTS[name]));
         };
@@ -197,7 +201,7 @@ body[data-accent-device=off] [data-composer-card]::after{display:none}`;
               h('div', { className: 'ac-desc' }, choice === ''
                 ? '当前跟随实例配置；在这里选一种只改本浏览器。'
                 : choice === 'none'
-                  ? '当前：DSH 原版配色（不套识别色，只留设备名胶囊）'
+                  ? '当前：DSH 原版配色（不套识别色，胶囊用中性灰）'
                   : `当前：${ACCENTS[choice].label}（仅本浏览器，不改实例配置）`)),
             h('div', { className: 'ac-swatches' },
               NAMES.map((name) => h('button', {
