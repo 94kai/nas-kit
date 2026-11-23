@@ -37,7 +37,7 @@
 
 匹配 id 的条目会整体替换 `config`，改完刷新页面即可。未知配色会退回 `rose`，并在 Host 日志里提示可选值。
 
-也可以直接在 GUI 里换：**设置 → 通用 → 实例配色**，点色块立刻生效，选择存在当前浏览器的 `localStorage`（`dsh-accent.choice`）。点「跟随配置」回到 profile 里的 `accent`；点「原版」则不套任何识别色，回到 DSH 自带配色（等于配置里写 `accent: none`），设备名胶囊仍然保留、自动改成中性灰（用正文色 `--dsw-alias-label-primary`，不再跟主题里那个偏蓝的强调色走）。浏览器里的选择优先于配置——它写在 body 的内联 token 上，或者直接把 head 里那段配色样式表禁用掉。
+也可以直接在 GUI 里换：**设置 → 通用 → 实例配色**，点色块立刻生效，选择存在当前浏览器的 `localStorage`（`dsh-accent.choice`）。点「跟随配置」回到 profile 里的 `accent`；点「原版」则不套任何识别色，回到 DSH 自带配色（等于配置里写 `accent: none`），设备名胶囊仍然保留、自动改成中性灰（用正文色 `--dsw-alias-label-primary`，不再跟主题里那个偏蓝的强调色走），只有左侧那颗 6px 圆点还保留实例自己的颜色。浏览器里的选择优先于配置——它写在 body 的内联 token 上，或者直接把 head 里那段配色样式表禁用掉。
 
 两处色值需要同步：`index.js` 的 `ACCENTS` 是 Host 注入的默认配色，`client.js` 的 `ACCENTS` 供设置面板即时切换。改配色时两个文件一起改。
 

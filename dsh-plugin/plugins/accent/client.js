@@ -162,10 +162,18 @@ body[data-accent-device=off] [data-composer-card]::after{display:none}`;
           }
           const sheet = paletteSheet();
           if (sheet !== null) sheet.disabled = name === 'none';
-          // 原版配色下胶囊改用正文色（中性灰）；选了具体颜色就跟着那套强调色走。
-          if (name === 'none') document.body.style.setProperty('--dsh-device-tone', 'var(--dsw-alias-label-primary)');
-          else if (name === '') document.body.style.removeProperty('--dsh-device-tone');
-          else document.body.style.setProperty('--dsh-device-tone', 'var(--dsw-alias-state-business-primary)');
+          // 原版配色下胶囊改用正文色（中性灰），左侧圆点保留实例色；选了具体颜色就整套跟着强调色走。
+          const bodyStyle = document.body.style;
+          if (name === 'none') {
+            bodyStyle.setProperty('--dsh-device-tone', 'var(--dsw-alias-label-primary)');
+            bodyStyle.removeProperty('--dsh-device-dot');
+          } else if (name === '') {
+            bodyStyle.removeProperty('--dsh-device-tone');
+            bodyStyle.removeProperty('--dsh-device-dot');
+          } else {
+            bodyStyle.setProperty('--dsh-device-tone', 'var(--dsw-alias-state-business-primary)');
+            bodyStyle.setProperty('--dsh-device-dot', 'var(--dsw-alias-state-business-primary)');
+          }
           if (name === '' || name === 'none') return;
           layer = ctx.theme.overrideTokens('@local/dsh-accent', tokensFor(ACCENTS[name]));
         };
