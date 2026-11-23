@@ -100,7 +100,7 @@ function deviceCss(device, plain) {
   // 输入卡原本只有 8px 上边距，胶囊压进去的那半截会紧贴附件缩略图；这里把上边距加厚，
   // 内容整体下移，胶囊仍然一半压在边框上，但和内容之间留出呼吸感。
   return `html body{--dsh-device-mark:${cssString(mark)};--dsh-device-tone:${tone}}`
-    + `html body [data-composer-card]{padding-top:14px}`
+    + `html body [data-composer-card]{padding-top:12px}`
     + `[data-composer-card]::after{content:var(--dsh-device-mark);position:absolute;top:-9px;left:12px;z-index:1;display:flex;align-items:center;height:18px;padding:0 9px;border-radius:999px;font-size:10.5px;font-weight:600;letter-spacing:.06em;line-height:1;white-space:nowrap;color:var(--dsh-device-tone,${tone});background:color-mix(in srgb,var(--dsh-device-tone,${tone}) 6%,var(--dsw-alias-bg-base));border:.5px solid color-mix(in srgb,var(--dsh-device-tone,${tone}) 20%,transparent);box-shadow:0 1px 3px rgb(0 0 0/.06);pointer-events:none;user-select:none}`;
 }
 

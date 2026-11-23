@@ -46,7 +46,7 @@
 颜色记不住谁是谁时，加一个能读出来的标记：
 
 - **标签**：输入卡左上角一枚 18px 高的胶囊，一半压在卡片上边框上；左边缘与附件缩略图对齐（都从卡片内 10px 起）。宽度跟着文字走，一个字母是一枚小圆牌，三个汉字是一条 45px 左右的胶囊。
-- **呼吸感**：卡片的上边距从 8px 加厚到 14px，附件和文字整体下移，胶囊底部到内容之间留出约 7px，不会一进来就贴着缩略图。
+- **呼吸感**：卡片的上边距从 8px 加厚到 12px，附件和文字整体下移，胶囊底部到内容之间留出约 3px，不会一进来就贴着缩略图。
 
 ```yaml
 - id: dsh-accent
@@ -80,7 +80,7 @@ Host 半边监听 `webserver/index-inject`，在页面 `<head>` 里注入一段 
 
 设置页那行通过 Host 注册的 `/api/dsh-accent`（`connection.fetch.register`，同源鉴权）读写设备名，写进 `.local/data/accent/device.json`；每次页面请求时按「文件里的值 → profile 配置」的优先级现算 CSS，所以改完刷新就生效。
 
-`device` 走同一段注入：在 `[data-composer-card]`（输入卡）上用 `::after` 画名牌胶囊，文字经 `--dsh-device-mark` 传进去；再用 `html body [data-composer-card]` 把卡片上边距从 8px 提到 14px（选择器压过宿主的 `.card` 规则）。胶囊高度、圆角、字号都是固定的，宽度由文字撑开。
+`device` 走同一段注入：在 `[data-composer-card]`（输入卡）上用 `::after` 画名牌胶囊，文字经 `--dsh-device-mark` 传进去；再用 `html body [data-composer-card]` 把卡片上边距从 8px 提到 12px（选择器压过宿主的 `.card` 规则）。胶囊高度、圆角、字号都是固定的，宽度由文字撑开。
 
 ## 安装
 
