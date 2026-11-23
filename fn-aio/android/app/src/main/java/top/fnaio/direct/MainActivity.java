@@ -60,6 +60,8 @@ public class MainActivity extends Activity {
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private final List<WebView> popups = new ArrayList<>();
     private WebView web;
+    private String quoteScript = "";
+    private String shiftScript = "";
     private WebDownloads downloads;
     private FrameLayout content;
     private FloatingBall ball;
@@ -96,6 +98,10 @@ public class MainActivity extends Activity {
         content = new FrameLayout(this);
         root.addView(content, new FrameLayout.LayoutParams(-1, -1));
         web = new WebView(this);
+        // 长按按钮/文字时 WebView 默认会做一次系统触感反馈，DSH 自身并不需要。
+        web.setHapticFeedbackEnabled(false);
+        quoteScript = readAsset("dsh-quote.js");
+        shiftScript = readAsset("dsh-shift.js");
         content.addView(web, new FrameLayout.LayoutParams(-1, -1));
         createFloatingMenu();
         setContentView(root);
@@ -141,6 +147,8 @@ public class MainActivity extends Activity {
                 return interceptNavigation(request.getUrl(), request.hasGesture());
             }
             @Override public void onPageFinished(WebView view, String url) {
+                if (!quoteScript.isEmpty()) view.evaluateJavascript(quoteScript, null);
+                if (!shiftScript.isEmpty()) view.evaluateJavascript(shiftScript, null);
                 CookieManager.getInstance().flush();
                 if (route == null || !route.allows(url)) return;
                 if (recovering) {
@@ -177,6 +185,14 @@ public class MainActivity extends Activity {
     }
 
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
+    private String readAsset(String name) {
+        try (InputStream input = getAssets().open(name); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = input.read(buffer)) != -1) out.write(buffer, 0, count);
+            return new String(out.toByteArray(), StandardCharsets.UTF_8);
+        } catch (Exception e) { return ""; }
+    }
     private void notice(String message) { if (!destroyed) Toast.makeText(this, message, Toast.LENGTH_LONG).show(); }
     private GradientDrawable background(int color, int radius) {
         GradientDrawable drawable = new GradientDrawable(); drawable.setColor(color); drawable.setCornerRadius(dp(radius)); return drawable;

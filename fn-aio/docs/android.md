@@ -1,4 +1,16 @@
-# Android「Agent」0.11.4
+# Android「Agent」0.11.9
+
+## 长按选区：引用浮层与系统菜单（0.11.9）
+
+- 现象：Android WebView 里长按按钮会震动；手机上长按拖选文字时，拖动过程中 DSH 的「引用文本」浮层可见，一松手浮层就消失、选区还在；PC 鼠标选中正常。
+- 根因：震动是 WebView 对长按的默认触感反馈。松手消失不是系统菜单遮挡本身，而是松手时 WebView 发出的 `pointercancel` / `contextmenu` / `blur` 让 DSH 的 `useTextInteraction` 调用了 `dismiss()`；系统菜单同时出现，看起来像被盖住。
+- 处理：
+  - 主 WebView 关闭 `setHapticFeedbackEnabled`，长按不再震动。
+  - 注入 [dsh-quote.js](../android/app/src/main/assets/dsh-quote.js)：有有效选区时拦截会让 DSH 收起的 `pointercancel` / `contextmenu` / `blur`；漏掉的再用合成 `pointerdown`/`pointerup` + 一次同步的 1 字符选区微调 + `selectionchange`，按原选区重新唤起引用浮层。
+  - 恢复系统 ActionMode（复制/分享/全选）；注入 [dsh-shift.js](../android/app/src/main/assets/dsh-shift.js)，把引用浮层向选区外侧平移 96px（空间不够时换另一侧），避免与系统菜单重叠。
+  - 0.11.7 曾注入自定义「复制」按钮，0.11.9 已移除，复制重新用系统的。
+- 范围：只对 DSH 的 `[data-text-interaction-source]` 选区生效；输入框、非 DSH 页面仍走系统菜单；未新增 jsBridge，未修改 DSH。
+- 版本 **0.11.9（versionCode 41）**。未在真机完成系统化验收；系统工具栏高度和 96px 间距如需调整，改 `dsh-shift.js` 的 `SHIFT`。
 
 ## 文件多选修复（0.11.4）
 
