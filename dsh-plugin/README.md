@@ -32,7 +32,7 @@
 
 `plugins/` 放不随工具箱安装的独立插件，各自是独立包、独立安装、独立版本：
 
-- [plugins/accent](plugins/accent/README.md)：`@local/dsh-accent`，在页面 index 注入 CSS，把主背景、侧栏底色、链接与发送按钮换成一种低饱和识别色，用来区分不同的 DSH 实例。
+- [plugins/accent](plugins/accent/README.md)：`@local/dsh-accent`，在页面 index 注入 CSS，把主背景、侧栏底色、链接与发送按钮换成一种低饱和识别色，并在输入卡左上角挂一枚设备名小标签，用来区分不同的 DSH 实例。
 - [plugins/aside-note](plugins/aside-note/README.md)：`@local/aside-note`，旁边记；2.0.0 起从工具箱抽出，数据路径不变。
 - [plugins/file-parent](plugins/file-parent/README.md)：`@local/file-parent`，给 `dsh-better-sidebar` 的文件树加「打开上一级目录」行菜单，从工作区根目录继续向上浏览。
 

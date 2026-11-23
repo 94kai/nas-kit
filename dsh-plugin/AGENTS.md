@@ -37,7 +37,7 @@
 - [旁边记（独立插件）](plugins/aside-note/README.md)：工作区/会话便笺、服务端持久化、原浏览器数据一次性合并与卸载前核对；2.0.0 起从工具箱抽出。
 - [文件树「上一级」（独立插件）](plugins/file-parent/README.md)：在 `dsh-better-sidebar` 的文件行菜单里打开当前树根的父目录（文件夹窗口），首次新开页签、之后原地向上；不注册 Host 路由。
 - [右侧终端辅助按键](docs/features/terminal-touch-keys.md)：同包功能与本机内置终端扩展桥，DSH升级兼容限制。
-- [实例配色（独立插件）](plugins/accent/README.md)：`@local/dsh-accent`，按实例在 index 注入 CSS 替换五个主题 token；配置写在各自的 profile 补丁里。
+- [实例配色（独立插件）](plugins/accent/README.md)：`@local/dsh-accent`，按实例在 index 注入 CSS 替换六个主题 token，并在输入卡左上角挂一枚设备名小标签；配置写在各自的 profile 补丁里。
 - [DSH 账号登录与切换](docs/dsh-account-login.md)：远程域名登录报 `account: protocol` 的原因、SSH 隧道登录步骤、错误对照与 SSH 转发回滚。
 - [飞牛 DSH 网关清理记录](docs/features/fnos-gateway.md)：专用源码与构建产物已撤回；飞牛应用待管理员卸载，实际 DSH、工具箱和 Lucky 保留。
 - [五模块迁移记录](docs/utilities-migration.md)：数据核验、安装状态和功能差异。

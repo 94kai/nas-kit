@@ -1,9 +1,9 @@
 {
   "name": "@local/dsh-accent",
-  "version": "2.0.0",
+  "version": "2.5.0",
   "private": true,
   "type": "module",
-  "description": "给每个 DSH 实例一套低饱和识别色：侧栏与标题行淡染，链接、焦点环和发送按钮跟随同色",
+  "description": "给每个 DSH 实例一套低饱和识别色，并在输入卡左上角标一枚设备名胶囊",
   "exports": {
     ".": "./index.js",
     "./locale/*.json": "./locale/*.json",
