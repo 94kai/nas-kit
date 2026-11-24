@@ -12,7 +12,7 @@
 
 - **函数**：`createLocalPages({ file? }).add({ path, title? })`、`.list()`、`.remove(id)`，从 `@local/pocket-kit/shortcuts/local-pages` 导入；`path` 为绝对路径，标题缺省时取 HTML `<title>`，再退回文件名。同一文件（按 realpath）重复注册只更新标题。
 - **命令**：`node scripts/local-pages.mjs add <HTML 路径> [--title 标题]`；`list` 查看；`remove <id>` 移除。在本机（或 NAS 的 DSH 所在机器）执行，直接写同一份清单，服务端下次请求即读到。
-- **API**：`GET /api/shortcuts/local-pages` 返回 `{ items, revision }`，条目为 `{ id, kind: 'local', title, path, url, addedAt? }`；`POST` JSON `{ path, title? }` 注册，`{ action: 'remove', id }` 移除，校验与书签相同（`X-Pocket-Kit: 1`、同源、JSON、8 KiB）。
+- **API**：`GET /api/shortcuts/local-pages` 返回 `{ items, revision }`，条目为 `{ id, kind: 'local', title, path, url, addedAt? }`，`url` 是不带前导 `/` 的相对路径（相对 DSH 基址，反向代理挂在 `/dsh` 等子路径下也能打开）；`POST` JSON `{ path, title? }` 注册，`{ action: 'remove', id }` 移除，校验与书签相同（`X-Pocket-Kit: 1`、同源、JSON、8 KiB）。
 - **打开**：`GET /api/shortcuts/local-pages/content?id=…` 按注册 ID 读文件，不按任意路径取文件；只返回已注册项，未注册或文件已删除返回 404。响应 `text/html; charset=utf-8`、`Cache-Control: no-store`，并带 `Content-Security-Policy: sandbox allow-scripts allow-popups allow-forms allow-modals`。
 - **数据**：`.local/local-pages.json`，顶层数组 `{ id, title, path, addedAt }`，0600、原子替换；最多 200 条；单文件上限 16 MiB；只接受 `.html` / `.htm` 且必须是已存在的普通文件。
 - **决策**：页面来自本机用户文件，但和 DSH 同源。沙箱不授予 `allow-same-origin`，页面拿到的是不透明源，读不到已鉴权的 DSH API；代价是不能用 localStorage / IndexedDB，需要交互数据的页面应把数据写进 HTML 本身或改用独立站点。进程内写队列串行化浏览器写入；CLI 与页面写入之间不跨进程加锁，生成脚本与手动操作不并发即可。

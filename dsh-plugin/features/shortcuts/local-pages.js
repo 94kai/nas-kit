@@ -35,7 +35,9 @@ function titleOf(raw) {
 
 export function publicPage(item) {
   if (!item || typeof item.id !== 'string' || !item.id || typeof item.title !== 'string' || !item.title.trim() || typeof item.path !== 'string' || !item.path) throw new TypeError('Invalid local page');
-  const result = { id: item.id, kind: 'local', title: item.title, path: item.path, url: `/api/shortcuts/local-pages/content?id=${encodeURIComponent(item.id)}` };
+  // Relative to the DSH base path, not the origin root: behind a reverse proxy
+  // such as https://host/dsh the browser must stay under the same prefix.
+  const result = { id: item.id, kind: 'local', title: item.title, path: item.path, url: `api/shortcuts/local-pages/content?id=${encodeURIComponent(item.id)}` };
   if (typeof item.addedAt === 'string') result.addedAt = item.addedAt;
   return result;
 }
