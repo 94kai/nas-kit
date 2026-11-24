@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-accent",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "private": true,
   "type": "module",
   "description": "给每个 DSH 实例一套低饱和识别色，并在输入卡左上角标一枚设备名胶囊",

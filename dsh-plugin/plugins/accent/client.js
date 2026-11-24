@@ -71,9 +71,76 @@ window.__ModuleLoader__.load({
 .ac-input:focus{outline:none;border-color:var(--dsw-alias-state-business-primary)}
 .ac-note{font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);min-height:18px}
 body[data-accent-device=off] [data-composer-card]::after{display:none}
+.ac-wm{position:fixed;z-index:1;display:grid;place-items:center;overflow:hidden;pointer-events:none;user-select:none}
+.ac-wm-text::before{content:var(--dsh-device-mark);display:block;font-size:var(--dsh-wm-size,72px);font-weight:800;letter-spacing:.08em;line-height:1;white-space:nowrap;color:var(--dsh-device-tone,var(--dsw-alias-label-primary));opacity:.06;transform:rotate(-20deg)}
+body[data-ds-dark-theme] .ac-wm-text::before{opacity:.08}
 /* 侧栏品牌：把自带的 deepseek wordmark 换成设备名胶囊（logo 仍在 brand.mark 里） */
 [class*=brandName]>svg{display:none}
 [class*=brandName]::after{content:var(--dsh-device-mark);display:flex;align-items:center;height:18px;padding:0 9px;border-radius:999px;font-size:10.5px;font-weight:600;letter-spacing:.06em;line-height:1;white-space:nowrap;color:var(--dsh-device-tone,var(--dsw-alias-label-primary));background:color-mix(in srgb,var(--dsh-device-tone,var(--dsw-alias-label-primary)) 6%,var(--dsw-specific-sidebar-fill,var(--dsw-alias-bg-base)));border:.5px solid color-mix(in srgb,var(--dsh-device-tone,var(--dsw-alias-label-primary)) 20%,transparent)}`;
+
+    /**
+     * 整页水印：只覆盖中间内容列，随列宽实时缩放。
+     * 用 fixed 覆盖层而不是改内容列样式，避免动到 DSH 的定位与层叠。
+     */
+    function mountWatermark() {
+      const layer = document.createElement('div');
+      layer.className = 'ac-wm';
+      layer.setAttribute('aria-hidden', 'true');
+      const text = document.createElement('span');
+      text.className = 'ac-wm-text';
+      layer.append(text);
+      document.body.append(layer);
+
+      let column = null;
+      let observer = null;
+
+      const update = () => {
+        if (column === null) return;
+        const rect = column.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+        layer.style.left = `${rect.left}px`;
+        layer.style.top = `${rect.top}px`;
+        layer.style.width = `${rect.width}px`;
+        layer.style.height = `${rect.height}px`;
+        const raw = getComputedStyle(document.body).getPropertyValue('--dsh-device-mark').trim();
+        const text = raw.replace(/^"|"$/g, '').replace(/\\"/g, '"');
+        const length = Math.max(1, [...text].length);
+        const size = Math.max(48, Math.min(rect.width * 0.9 / (length * 0.62 + 0.35), rect.height * 0.45, 360));
+        layer.style.setProperty('--dsh-wm-size', `${size}px`);
+      };
+
+      const attach = () => {
+        const next = document.querySelector('[class*="centerCol"]');
+        if (next === column) return;
+        if (observer !== null) observer.disconnect();
+        column = next;
+        if (column === null) return;
+        observer = new ResizeObserver(update);
+        observer.observe(column);
+        update();
+      };
+
+      const onResize = () => attach();
+      window.addEventListener('resize', onResize);
+      window.visualViewport?.addEventListener('resize', onResize);
+      const onDevice = () => {
+        attach();
+        update();
+      };
+      window.addEventListener('dsh-accent:device', onDevice);
+      const tree = new MutationObserver(attach);
+      tree.observe(document.body, { childList: true, subtree: true });
+      attach();
+
+      return () => {
+        tree.disconnect();
+        observer?.disconnect();
+        window.removeEventListener('resize', onResize);
+        window.visualViewport?.removeEventListener('resize', onResize);
+        window.removeEventListener('dsh-accent:device', onDevice);
+        layer.remove();
+      };
+    }
 
     /** 把设备名立刻刷到胶囊上（不动 head 里那段 CSS，刷新后由 Host 注入同一个值）。 */
     function paintDevice(name) {
@@ -123,6 +190,7 @@ body[data-accent-device=off] [data-composer-card]::after{display:none}
           if (!response.ok) throw new Error(String(response.status));
           const data = await response.json();
           paintDevice(data.name ?? '');
+          window.dispatchEvent(new Event('dsh-accent:device'));
           setNote(data.name ? '已保存，这台实例的其它浏览器刷新后也是这个名字' : '已清空，胶囊已隐藏');
         } catch {
           setNote('保存失败，稍后再试');
@@ -180,6 +248,8 @@ body[data-accent-device=off] [data-composer-card]::after{display:none}
           if (layer !== null) layer();
           layer = null;
         }, 'dsh-accent: 本地配色层');
+
+        ctx.effect(() => mountWatermark(), 'dsh-accent: 整页水印');
 
         ctx.effect(() => {
           const tag = document.createElement('style');
