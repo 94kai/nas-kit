@@ -6,6 +6,19 @@
 
 旧「随身工具箱」侧栏弹出菜单和 `local.shortcuts.menu.action` 已移除。底部唯一自定义入口由首页模块提供，书签模块只保留详情页与数据接口。
 
+## 本地页面（2.1.0）
+
+首页「常用网站」除了网页书签，也显示注册过的本地 HTML；卡片小字标注「本地页面」，点击在新标签页打开。用于 NAS 本机生成的体重记录、报表等不便直接双击查看的文件：文件不搬家，重新生成后打开就是最新内容。
+
+- **函数**：`createLocalPages({ file? }).add({ path, title? })`、`.list()`、`.remove(id)`，从 `@local/pocket-kit/shortcuts/local-pages` 导入；`path` 为绝对路径，标题缺省时取 HTML `<title>`，再退回文件名。同一文件（按 realpath）重复注册只更新标题。
+- **命令**：`node scripts/local-pages.mjs add <HTML 路径> [--title 标题]`；`list` 查看；`remove <id>` 移除。在本机（或 NAS 的 DSH 所在机器）执行，直接写同一份清单，服务端下次请求即读到。
+- **API**：`GET /api/shortcuts/local-pages` 返回 `{ items, revision }`，条目为 `{ id, kind: 'local', title, path, url, addedAt? }`；`POST` JSON `{ path, title? }` 注册，`{ action: 'remove', id }` 移除，校验与书签相同（`X-Pocket-Kit: 1`、同源、JSON、8 KiB）。
+- **打开**：`GET /api/shortcuts/local-pages/content?id=…` 按注册 ID 读文件，不按任意路径取文件；只返回已注册项，未注册或文件已删除返回 404。响应 `text/html; charset=utf-8`、`Cache-Control: no-store`，并带 `Content-Security-Policy: sandbox allow-scripts allow-popups allow-forms allow-modals`。
+- **数据**：`.local/local-pages.json`，顶层数组 `{ id, title, path, addedAt }`，0600、原子替换；最多 200 条；单文件上限 16 MiB；只接受 `.html` / `.htm` 且必须是已存在的普通文件。
+- **决策**：页面来自本机用户文件，但和 DSH 同源。沙箱不授予 `allow-same-origin`，页面拿到的是不透明源，读不到已鉴权的 DSH API；代价是不能用 localStorage / IndexedDB，需要交互数据的页面应把数据写进 HTML 本身或改用独立站点。进程内写队列串行化浏览器写入；CLI 与页面写入之间不跨进程加锁，生成脚本与手动操作不并发即可。
+
+验证：`node --check`、`npm run build` 与 Node 端 `add/list/content/remove` 冒烟通过；未做真实 GUI 打开验收，页面在浏览器中的 CSP 行为需实际打开确认。
+
 ## API 与数据
 
 - `GET /api/shortcuts/bookmarks`：返回 `{ items, revision }`，revision 为文件原始内容的 SHA256；缺失文件返回空数组；畸形内容或其他读取失败返回 500 `{ error }`。经 DSH Connection 鉴权，不缓存响应。

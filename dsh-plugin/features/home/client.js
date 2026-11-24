@@ -34,9 +34,14 @@ window.__ModuleLoader__.load({
       },[]);
       React.useEffect(()=>{
         const controller=new AbortController();setState(current=>({...current,loading:true,error:false}));
-        fetch(new URL('api/shortcuts/bookmarks',document.baseURI),{credentials:'same-origin',cache:'no-store',signal:controller.signal})
-          .then(async response=>{if(!response.ok)throw new Error();const value=await response.json();if(!Array.isArray(value.items))throw new Error();if(!controller.signal.aborted)setState({loading:false,error:false,items:value.items});})
-          .catch(()=>{if(!controller.signal.aborted)setState({loading:false,error:true,items:[]});});
+        const load=path=>fetch(new URL(path,document.baseURI),{credentials:'same-origin',cache:'no-store',signal:controller.signal})
+          .then(async response=>{if(!response.ok)throw new Error();const value=await response.json();return Array.isArray(value.items)?value.items:[];})
+          .catch(()=>null);
+        Promise.all([load('api/shortcuts/bookmarks'),load('api/shortcuts/local-pages')]).then(([sites,pages])=>{
+          if(controller.signal.aborted)return;
+          if(!sites&&!pages){setState({loading:false,error:true,items:[]});return;}
+          setState({loading:false,error:false,items:[...(sites||[]),...(pages||[])]});
+        });
         return()=>controller.abort();
       },[version]);
       return {...state,reload:()=>setVersion(value=>value+1)};
@@ -53,7 +58,7 @@ window.__ModuleLoader__.load({
         h('header',{className:'pk-home-header'},h('div',{className:'pk-home-title'},h('span',{className:'pk-home-mark'},h(HomeIcon,{size:25})),h('div',null,h('h1',null,t('title')),h('p',null,t('subtitle')))),h(KitNavActions,{chat,compact:true})),
         h('section',{className:'pk-home-section','aria-label':t('tools')},h('div',{className:'pk-home-section-head'},h('h2',null,t('tools'))),h('div',{className:'pk-home-tools'},renderSlot('local.pocket-kit.home.tool',{renderCard}))),
         h('section',{className:'pk-home-section','aria-label':t('links')},h('div',{className:'pk-home-section-head'},h('h2',null,t('links')),h('div',{className:'pk-home-actions'},h('button',{type:'button',className:'pk-home-button',onClick:links.reload,disabled:links.loading},t('refresh')),h('button',{type:'button',className:'pk-home-button',onClick:()=>open('shortcuts')},t('details')))),
-          links.loading?h('div',{className:'pk-home-status',role:'status'},t('loading')):links.error?h('div',{className:'pk-home-status',role:'alert'},h('p',null,t('error')),h('button',{type:'button',className:'pk-home-button',onClick:links.reload},t('retry'))):!links.items.length?h('div',{className:'pk-home-status'},t('empty')):h('div',{className:'pk-home-links'},links.items.map(item=>h('a',{key:item.id,className:'pk-home-link',href:item.url,target:'_blank',rel:'noopener noreferrer',title:item.title+' · '+t('newTab')},h('span',{className:'pk-home-link-icon'},h(BookmarkIcon,{item})),h('span',{className:'pk-home-link-text'},h('strong',null,item.title),item.description&&h('small',null,item.description)),h('span',{className:'pk-home-arrow','aria-hidden':true},'↗'))))
+          links.loading?h('div',{className:'pk-home-status',role:'status'},t('loading')):links.error?h('div',{className:'pk-home-status',role:'alert'},h('p',null,t('error')),h('button',{type:'button',className:'pk-home-button',onClick:links.reload},t('retry'))):!links.items.length?h('div',{className:'pk-home-status'},t('empty')):h('div',{className:'pk-home-links'},links.items.map(item=>{const local=item.kind==='local';const href=local?new URL(item.url,document.baseURI).href:item.url;return h('a',{key:item.id,className:'pk-home-link',href,target:'_blank',rel:'noopener noreferrer',title:item.title+' · '+(local?item.path:t('newTab'))},h('span',{className:'pk-home-link-icon'},h(BookmarkIcon,{item})),h('span',{className:'pk-home-link-text'},h('strong',null,item.title),(local||item.description)&&h('small',null,local?'本地页面':item.description)),h('span',{className:'pk-home-arrow','aria-hidden':true},'↗'))}))
         )
       ));
     }

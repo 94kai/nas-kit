@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, open, readFile, rename, unlink } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { createLocalPageContentHandler, createLocalPages, createLocalPagesHandler } from './local-pages.js';
 
 export const inject = ['connection'];
 const defaultFile = new URL('../../.local/bookmarks.json', import.meta.url);
@@ -106,8 +107,17 @@ export function createHandler({ bookmarksFile = defaultFile } = {}) {
 }
 
 export function apply(ctx) {
+  const pages = createLocalPages();
   ctx.effect(() => ctx.connection.fetch.register({
     path: '/api/shortcuts/bookmarks', methods: ['GET', 'POST'], requestBody: 'buffered',
     fetch: createHandler(),
+  }));
+  ctx.effect(() => ctx.connection.fetch.register({
+    path: '/api/shortcuts/local-pages', methods: ['GET', 'POST'], requestBody: 'buffered',
+    fetch: createLocalPagesHandler(pages),
+  }));
+  ctx.effect(() => ctx.connection.fetch.register({
+    path: '/api/shortcuts/local-pages/content', methods: ['GET'], requestBody: 'buffered',
+    fetch: createLocalPageContentHandler(pages),
   }));
 }
