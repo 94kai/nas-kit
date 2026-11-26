@@ -5,6 +5,6 @@ pm2 start /home/xuekai/.local/share/fnm/node-versions/v26.13.1/installation/bin/
   --name dsh-rescue \
   --interpreter none \
   --time \
-  -- --yes @deepseek-ai/dsh --profile rescue \
+  -- --yes @deepseek-ai/dsh@alpha --profile rescue \
   --no-open \
   --port 2008
