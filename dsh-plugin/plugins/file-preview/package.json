@@ -6,13 +6,17 @@
   "description": "DSH 原生右侧栏文件预览：音频文件可直接播放，后续扩展其他文件类型",
   "exports": {
     ".": "./host.js",
-    "./client": "./client.js"
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
   },
   "files": [
     "host.js",
     "client.js",
     "cordis.patch.yml",
-    "README.md"
+    "README.md",
+    "locale/*.json",
+    "icon.svg"
   ],
   "dsh": {
     "bundle": {
