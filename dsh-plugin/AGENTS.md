@@ -34,7 +34,7 @@
 - 功能：[工具箱导航](docs/features/home.md) · [快捷访问](docs/features/shortcuts.md) · [连接测速](docs/features/network-speed.md) · [出门清单](docs/features/outing-checklist.md) · [音乐](docs/features/music.md) · [小爱音箱](docs/features/xiaoai.md)。
 - 迁入功能：[进京证](docs/features/beijing-pass.md) · [健康](docs/features/health.md) · [终端](docs/features/terminal.md) · [记账单](docs/features/bill-manager.md)。
 - [右侧栏 CSV 预览](docs/features/csv-preview.md)：工作区 CSV 表格预览、筛选和排序。
-- [文件预览（独立插件）](plugins/file-preview/README.md)：原生右侧栏音频文件播放，后续扩展其他文件类型；不随工具箱安装。
+- [文件预览（独立插件）](plugins/file-preview/README.md)：原生右侧栏音频与视频播放，视频经 Host 路由按 Range 分块读取；后续扩展其他文件类型。不随工具箱安装。
 - [旁边记（独立插件）](plugins/aside-note/README.md)：工作区/会话便笺、服务端持久化、原浏览器数据一次性合并与卸载前核对；2.0.0 起从工具箱抽出。
 - [右侧终端辅助按键](docs/features/terminal-touch-keys.md)：同包功能与本机内置终端扩展桥，DSH升级兼容限制。
 - [实例配色（独立插件）](plugins/accent/README.md)：`@local/dsh-accent`，按实例在 index 注入 CSS 替换六个主题 token，并在输入卡左上角挂一枚设备名小标签；配置写在各自的 profile 补丁里。

@@ -1,9 +1,9 @@
 {
   "name": "@local/file-preview",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "DSH 原生右侧栏文件预览：音频文件可直接播放，后续扩展其他文件类型",
+  "description": "DSH 原生右侧栏文件预览：音频与视频文件可直接播放，视频按 Range 分块流式读取",
   "exports": {
     ".": "./host.js",
     "./client": "./client.js",

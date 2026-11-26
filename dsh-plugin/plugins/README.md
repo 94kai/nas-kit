@@ -7,7 +7,7 @@
 | `accent/` | `@local/dsh-accent` | 实例配色：主背景、侧栏、链接与发送按钮按实例换色调 | `plugin_manager install_bundle` → `link:<repo>/dsh-plugin/plugins/accent` |
 | `aside-note/` | `@local/aside-note` | 旁边记：会话/工作区便笺，数据存服务端 | 先 `npm run build`，再 `install_bundle` → `link:<repo>/dsh-plugin/plugins/aside-note` |
 | `photo-lab/` | `@local/photo-lab` | 修图工作台：会话绑定的照片批处理面板，AI 初筛、拍板、按风格修图、前后对比与导出 | 先 `npm install && npm run build`，再 `install_bundle` → `link:<repo>/dsh-plugin/plugins/photo-lab` |
-| `file-preview/` | `@local/file-preview` | DSH 原生右侧栏文件预览：音频文件可直接播放，后续扩展其他文件类型 | `install_bundle` → `link:<repo>/dsh-plugin/plugins/file-preview` |
+| `file-preview/` | `@local/file-preview` | DSH 原生右侧栏文件预览：音频与视频可直接播放，后续扩展其他文件类型 | `install_bundle` → `link:<repo>/dsh-plugin/plugins/file-preview` |
 
 ## 什么该放进来
 

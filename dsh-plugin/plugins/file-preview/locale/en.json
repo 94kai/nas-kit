@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "File preview",
-    "description": "Play audio files in DSH's native right-sidebar file preview, with seeking, ±10 seconds and volume controls; more file types will follow."
+    "description": "Play audio and video in DSH's native right-sidebar file preview: audio with seeking and volume controls, video streamed with the browser's own controls and range seeking for large files; more file types will follow."
   }
 }
