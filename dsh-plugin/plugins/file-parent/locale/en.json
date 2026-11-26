@@ -1,6 +1,0 @@
-{
-  "meta": {
-    "title": "File tree parent",
-    "description": "Adds an \"Open parent directory\" row action to the better-sidebar file tree so you can browse above the workspace root."
-  }
-}
