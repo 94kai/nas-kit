@@ -98,11 +98,11 @@ node features/terminal-touch-keys/bridge.mjs "${TERMINAL_PACKAGE:?}" --rollback 
 - `include:ui-sidebar-terminal` 禁用/启用均返回applied、warnings=[]。未重启DSH、未禁用终端controller、未发送真实终端字符。
 - 遵循最新AGENTS，缓存修复后未运行浏览器验证；不把applied当作实际Tab已恢复。
 - 最终用户明确反馈“那个按键我测试没问题了”，按键功能通过用户实际验收。此前记录的自动化布局覆盖限制仍保留，不扩展为所有设备/软键盘均已验收。
-- 升级后仅在用户主动要求时重新适配；终端按键与token登录分别授权，不因升级或失效自动重打补丁。
+- 升级后仅在用户主动要求时重新适配；不因升级或失效自动重打补丁。
 
 ## 2026-11-20 0.2.2-rc.5 升级适配记录
 
-用户明确要求两项宿主适配后执行。未改其他内置插件、会话机制、终端 controller 或 profile 依赖。
+用户明确要求宿主适配后执行。未改其他内置插件、会话机制、终端 controller 或 profile 依赖。
 
 - 实际运行路径仍是 `/home/xuekai/.npm/_npx/1e7f6d9597241db0/node_modules/@deepseek-ai/dsh-client-ui-sidebar-terminal`，版本 `0.2.2-rc.5`。rc.5 产物改为无空格压缩并用模板字符串，旧锚点直接报 `Unsupported DSH terminal artifact`。
 - 脚本锚点改为 rc.5 形状：`TerminalBody`/`TerminalScreen` 签名、`TerminalScreen` 调用点、`return(0,react_jsx_runtime.jsx)(\`div\`,...)`，以及入口 `name:\`sidebar.right.pane.tab\`,key:id,locale:namespace`。槽位仍为 `local.terminal.touch.keys`（list/session），八键白名单与 `sendKey` 逻辑未改；rc.5 仍未提供原生 `renderSlot`，所以继续用兼容桥。

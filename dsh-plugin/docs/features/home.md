@@ -46,7 +46,7 @@
 
 - `?toolbox=1`：每次打开都直接进入工具箱首页，忽略“上次是否开启”和宿主已恢复的面板；`?toolbox=0`：每次打开都停在会话，不自动进入工具箱。只识别精确值 `1` / `0`，其他值和不带参数时仍按上次状态决定。
 - 两个参数入口只决定本次导航，不写入也不覆盖 `pocket-kit.home.open.v1`，因此固定 URL 与普通入口互不影响；参数不改变面板 key、Session 或业务数据。
-- 参数与子路径部署无关，`https://…/dsh/?toolbox=1` 这类地址可直接使用。DSH 的 token 登录会重定向到 `?dsh-token-auth=verified`，首次带 token 登录那一次不保留参数，登录后重新打开带参数的 URL 即可。
+- 参数与子路径部署无关，`https://…/dsh/?toolbox=1` 这类地址可直接使用。
 - fn-aio Android 0.8.3 的「工具箱」「dsh」两个桌面入口由 App 在加载时分别追加 `?toolbox=1` / `?toolbox=0`；App 保存的地址本身仍禁止查询参数和片段，参数只在加载时拼上。浏览器书签或页面内同源链接可直接使用带参数的地址。
 - 验证：`npm run build` 与 `npm run check` 通过，服务端无需重启即可返回新 bundle（已核对 `plugins/??@local/pocket-kit/client.js` 包含新逻辑）；未做浏览器或手机实页验收。
 ### 沉浸模式（?toolbox=1，2026-11-18）
