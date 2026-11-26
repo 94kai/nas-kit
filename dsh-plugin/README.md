@@ -35,6 +35,7 @@
 - [plugins/accent](plugins/accent/README.md)：`@local/dsh-accent`，在页面 index 注入 CSS，把主背景、侧栏底色、链接与发送按钮换成一种低饱和识别色，并在输入卡左上角挂一枚设备名小标签，用来区分不同的 DSH 实例。
 - [plugins/aside-note](plugins/aside-note/README.md)：`@local/aside-note`，旁边记；2.0.0 起从工具箱抽出，数据路径不变。
 - [plugins/file-parent](plugins/file-parent/README.md)：`@local/file-parent`，给 `dsh-better-sidebar` 的文件树加「打开上一级目录」行菜单，从工作区根目录继续向上浏览。
+- [plugins/file-preview](plugins/file-preview/README.md)：`@local/file-preview`，给 DSH 原生右侧栏的文件预览加文件类型渲染器；当前音频文件可直接播放，后续扩展其他文件类型。
 
 这些包不进工具箱的 `package.json` 导出、`files` 清单和 `scripts/build.mjs` 构建；装了工具箱不等于装了它们，反之亦然。
 

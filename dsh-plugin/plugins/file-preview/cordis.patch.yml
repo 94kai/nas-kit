@@ -1,0 +1,6 @@
+# DSH 原生右侧栏文件预览：Host 只是让客户端半边被组合进来的空载体。
+# 渲染器注册到 documentPreviews / sidebar.right.tab.document，不注册任何 Host 路由。
+- insert:
+    - id: file-preview
+      name: '@local/file-preview'
+      config: {}

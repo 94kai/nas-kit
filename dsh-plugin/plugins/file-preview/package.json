@@ -1,0 +1,26 @@
+{
+  "name": "@local/file-preview",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "DSH 原生右侧栏文件预览：音频文件可直接播放，后续扩展其他文件类型",
+  "exports": {
+    ".": "./host.js",
+    "./client": "./client.js"
+  },
+  "files": [
+    "host.js",
+    "client.js",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  }
+}

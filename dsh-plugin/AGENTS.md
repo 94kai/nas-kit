@@ -4,7 +4,7 @@
 
 **默认仍在 `@local/pocket-kit` 内迭代**：业务放入 `features/<feature>/` 并接入根包统一构建、安装和文档；功能需要不同 UI 入口或内置兼容桥，不构成拆包理由。
 
-**但跨设备复用、生命周期独立、或与工具箱业务无关的插件，可以做成 `plugins/<name>/` 下的独立安装包**（当前：`plugins/accent` 实例配色、`plugins/aside-note` 旁边记、`plugins/file-parent` 文件树「上一级」菜单、`plugins/photo-lab` 修图工作台）。判据是"它需不需要跟工具箱一起装"：只在一台机器上用的工具留在箱子里；要在多台设备各自启用/停用、或不想连带装箱子全部 Host 的，独立成包。独立包各自有 `package.json`、`cordis.patch.yml`、README 与构建脚本（无内联需求的纯源码包可直接把 `client.js` 作为 `./client` 导出，不强制 `dist/`），`dsh-plugin/` 根包不再导出它们，也不把它们打进工具箱产物。
+**但跨设备复用、生命周期独立、或与工具箱业务无关的插件，可以做成 `plugins/<name>/` 下的独立安装包**（当前：`plugins/accent` 实例配色、`plugins/aside-note` 旁边记、`plugins/file-parent` 文件树「上一级」菜单、`plugins/file-preview` 原生右侧栏文件预览、`plugins/photo-lab` 修图工作台）。判据是"它需不需要跟工具箱一起装"：只在一台机器上用的工具留在箱子里；要在多台设备各自启用/停用、或不想连带装箱子全部 Host 的，独立成包。独立包各自有 `package.json`、`cordis.patch.yml`、README 与构建脚本（无内联需求的纯源码包可直接把 `client.js` 作为 `./client` 导出，不强制 `dist/`），`dsh-plugin/` 根包不再导出它们，也不把它们打进工具箱产物。
 
 **宿主启动安全：默认不直接修改 DSH npm/npx 安装目录里的内置插件产物。** 若确需宿主兼容补丁，先说明具体改动、启动风险及可验证回滚方案，并取得针对宿主改动的明确同意。语法检查、单元测试、安装返回 applied 都不等于浏览器启动成功；缺乏真实激活验证时不得宣称宿主补丁已验收。1.5.0 专用终端适配曾导致 Web boot 失败，已撤回，禁止重新应用 `dedicated-bridge.mjs`。
 
@@ -34,6 +34,7 @@
 - 功能：[工具箱导航](docs/features/home.md) · [快捷访问](docs/features/shortcuts.md) · [连接测速](docs/features/network-speed.md) · [出门清单](docs/features/outing-checklist.md) · [音乐](docs/features/music.md) · [小爱音箱](docs/features/xiaoai.md)。
 - 迁入功能：[进京证](docs/features/beijing-pass.md) · [健康](docs/features/health.md) · [终端](docs/features/terminal.md) · [记账单](docs/features/bill-manager.md)。
 - [右侧栏 CSV 预览](docs/features/csv-preview.md)：工作区 CSV 表格预览、筛选和排序。
+- [文件预览（独立插件）](plugins/file-preview/README.md)：原生右侧栏音频文件播放，后续扩展其他文件类型；不随工具箱安装。
 - [旁边记（独立插件）](plugins/aside-note/README.md)：工作区/会话便笺、服务端持久化、原浏览器数据一次性合并与卸载前核对；2.0.0 起从工具箱抽出。
 - [文件树「上一级」（独立插件）](plugins/file-parent/README.md)：在 `dsh-better-sidebar` 的文件行菜单里打开当前树根的父目录（文件夹窗口），首次新开页签、之后原地向上；不注册 Host 路由。
 - [右侧终端辅助按键](docs/features/terminal-touch-keys.md)：同包功能与本机内置终端扩展桥，DSH升级兼容限制。

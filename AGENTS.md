@@ -4,7 +4,7 @@
 
 | 目录 | 项目 | 是什么 | 怎么运行 |
 | --- | --- | --- | --- |
-| [`dsh-plugin/`](dsh-plugin/) | 随身工具箱 · Pocket Kit（`@local/pocket-kit`） | DSH 插件。按功能分模块的个人工具包：进京证、健康、终端、记账单、音乐、小爱音箱、旁边记、快捷访问等，界面在现有 DSH GUI 的「工具箱」里。同目录 [`plugins/`](dsh-plugin/plugins/) 放不随工具箱安装的独立插件：`@local/dsh-accent`（实例配色）、`@local/aside-note`（旁边记，2.0.0 起从工具箱抽出）、`@local/file-parent`（better-sidebar 文件树的「打开上一级目录」行菜单）。 | 构建后以 `link:` 方式安装进 DSH 的 `web` profile；不单独监听端口，不替代 DSH 服务。 |
+| [`dsh-plugin/`](dsh-plugin/) | 随身工具箱 · Pocket Kit（`@local/pocket-kit`） | DSH 插件。按功能分模块的个人工具包：进京证、健康、终端、记账单、音乐、小爱音箱、旁边记、快捷访问等，界面在现有 DSH GUI 的「工具箱」里。同目录 [`plugins/`](dsh-plugin/plugins/) 放不随工具箱安装的独立插件：`@local/dsh-accent`（实例配色）、`@local/aside-note`（旁边记，2.0.0 起从工具箱抽出）、`@local/file-parent`（better-sidebar 文件树的「打开上一级目录」行菜单）、`@local/file-preview`（DSH 原生右侧栏文件预览，当前支持音频播放）。 | 构建后以 `link:` 方式安装进 DSH 的 `web` profile；不单独监听端口，不替代 DSH 服务。 |
 | [`fn-aio/`](fn-aio/) | FN AIO（`fn-aio`） | 飞牛（fnOS）上的独立 App 与私有服务网关：经飞牛登录管理 NAS 自建 HTTP 服务，可选对外业务入口。不是 DSH 插件。 | 构建 FPK 后在飞牛应用中心安装，由飞牛运行；不依赖、不启动、不迁移 DSH 或业务服务。 |
 
 ## 先读哪个文件
