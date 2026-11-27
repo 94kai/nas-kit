@@ -1,0 +1,8 @@
+{
+  "name": "@local/files", "version": "1.2.0", "private": true, "type": "module",
+  "description": "文件：在 DSH 左侧栏浏览、收藏和管理服务器主目录里的文件。",
+  "exports": { ".": "./host.js", "./client": "./dist/client.js", "./locale/*.json": "./locale/*.json", "./icon": "./icon.svg" },
+  "files": ["host.js", "dist/client.js", "cordis.patch.yml", "locale/*.json", "icon.svg", "README.md"],
+  "scripts": { "build": "node build.mjs" },
+  "dsh": { "bundle": { "patch": "./cordis.patch.yml" }, "client": { "platform": "web", "immediately": true, "inject": ["@deepseek-ai/dsh-client-ui-layout", "@deepseek-ai/dsh-client-ui-sidebar"] } }
+}

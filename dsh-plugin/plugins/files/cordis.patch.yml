@@ -1,0 +1,4 @@
+- insert:
+    - id: local-files
+      name: '@local/files'
+      config: {}

@@ -1,0 +1,10 @@
+.lfiles-pv { width:100%; height:100%; min-height:0; overflow:auto; color:var(--lfiles-ink); background:var(--lfiles-page); }
+.lfiles-pv * {box-sizing:border-box}
+.lfiles-pv-head {position:sticky;top:0;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--lfiles-line);background:var(--lfiles-page);padding:6px max(12px,env(safe-area-inset-right)) 6px max(12px,env(safe-area-inset-left));}
+.lfiles-pv button,.lfiles-pv-button {display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:44px;border:0;border-radius:9px;background:var(--lfiles-subtle);color:var(--lfiles-ink);text-decoration:none;font:inherit;font-size:14px;padding:6px 13px;cursor:pointer}
+.lfiles-pv :is(a,button):focus-visible {outline:2px solid var(--lfiles-accent);outline-offset:-2px}
+.lfiles-pv-content {max-width:60rem;margin:auto;padding:clamp(16px,4vw,38px) max(16px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left)); overflow-wrap:anywhere}
+.lfiles-pv-content>h1 {font-size:clamp(20px,4vw,30px);line-height:1.3;margin:4px 0 16px}.lfiles-pv-meta {font-size:12px;letter-spacing:.055em;color:var(--lfiles-muted)}
+.lfiles-pv-body {margin-top:12px;padding:clamp(12px,3vw,24px);border:1px solid var(--lfiles-line);border-radius:16px;background:var(--lfiles-surface);min-width:0;line-height:1.7}
+.lfiles-pv-body img,.lfiles-pv-body video {display:block;max-width:100%;max-height:72dvh;margin:auto;object-fit:contain}.lfiles-pv-body video,.lfiles-pv-body audio{width:100%}
+.lfiles-source,.lfiles-md pre {white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.6 ui-monospace,monospace;margin:0}.lfiles-md p{white-space:pre-line}.lfiles-md :is(pre,blockquote) {background:var(--lfiles-subtle);border-radius:8px;padding:12px;margin:12px 0}.lfiles-md blockquote{border-inline-start:3px solid var(--lfiles-accent)}.lfiles-md code{font-family:ui-monospace,monospace;background:var(--lfiles-subtle);border-radius:4px;padding:.08em .2em}.lfiles-md pre code{padding:0}.lfiles-md>:first-child{margin-top:0}.lfiles-md>:last-child{margin-bottom:0}
