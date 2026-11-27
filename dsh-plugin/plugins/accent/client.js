@@ -73,12 +73,12 @@ window.__ModuleLoader__.load({
 body[data-accent-device=off] [data-composer-card]::after{display:none}
 .ac-wm{position:fixed;z-index:1;overflow:hidden;pointer-events:none;user-select:none;-webkit-mask-image:linear-gradient(180deg,transparent,#000 7%,#000 93%,transparent);mask-image:linear-gradient(180deg,transparent,#000 7%,#000 93%,transparent)}
 .ac-wm-band{position:absolute;left:50%;top:50%;display:flex;flex-direction:column;justify-content:space-between;width:160%;height:120%;transform:translate(-50%,-50%) rotate(-20deg)}
-.ac-wm-row{display:flex;flex:none;align-items:center;justify-content:space-around;gap:var(--dsh-wm-gap,48px);font-size:var(--dsh-wm-size,72px);font-weight:800;letter-spacing:.16em;line-height:1;text-transform:uppercase;white-space:nowrap;color:var(--dsh-device-tone,var(--dsw-alias-label-primary));opacity:.12;-webkit-mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)}
-.ac-wm-row:nth-child(even){color:transparent;-webkit-text-stroke:1.2px var(--dsh-device-tone,var(--dsw-alias-label-primary));opacity:.3}
+.ac-wm-row{display:flex;flex:none;align-items:center;justify-content:space-around;gap:var(--dsh-wm-gap,48px);font-size:var(--dsh-wm-size,72px);font-weight:800;letter-spacing:.16em;line-height:1;text-transform:uppercase;white-space:nowrap;color:var(--dsh-device-tone,var(--dsw-alias-label-primary));opacity:.07;-webkit-mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)}
+.ac-wm-row:nth-child(even){color:transparent;-webkit-text-stroke:1px var(--dsh-device-tone,var(--dsw-alias-label-primary));opacity:.18}
 .ac-wm-row:nth-child(3n+2){margin-left:9%}
 .ac-wm-row>span{flex:none}
-body[data-ds-dark-theme] .ac-wm-row{opacity:.16}
-body[data-ds-dark-theme] .ac-wm-row:nth-child(even){opacity:.34}
+body[data-ds-dark-theme] .ac-wm-row{opacity:.1}
+body[data-ds-dark-theme] .ac-wm-row:nth-child(even){opacity:.21}
 /* 侧栏品牌：把自带的 deepseek wordmark 换成设备名胶囊（logo 仍在 brand.mark 里） */
 [class*=brandName]>svg{display:none}
 [class*=brandName]::after{content:var(--dsh-device-mark);display:flex;align-items:center;height:18px;padding:0 9px;border-radius:999px;font-size:10.5px;font-weight:600;letter-spacing:.06em;line-height:1;white-space:nowrap;color:var(--dsh-device-tone,var(--dsw-alias-label-primary));background:color-mix(in srgb,var(--dsh-device-tone,var(--dsw-alias-label-primary)) 6%,var(--dsw-specific-sidebar-fill,var(--dsw-alias-bg-base)));border:.5px solid color-mix(in srgb,var(--dsh-device-tone,var(--dsw-alias-label-primary)) 20%,transparent)}`;
