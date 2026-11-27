@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import threading
+import time
 
 from music_search_core import MusicIndexer
 from music_search_core import MusicIndexStore
@@ -77,6 +78,21 @@ class MusicSearcher:
             keyword_lower,
             self.max_results,
         )
+        if total_matches == 0:
+            started = time.perf_counter()
+            total_matches, selected = self._search_engine.search_numbers_with_count(
+                snapshot,
+                keyword_lower,
+                self.max_results,
+            )
+            if total_matches:
+                logger.info(
+                    "数字写法兜底: 关键词=%s 总匹配=%d 返回=%d 耗时=%.0f毫秒",
+                    keyword,
+                    total_matches,
+                    len(selected),
+                    (time.perf_counter() - started) * 1000,
+                )
         if total_matches == 0 and phonetic_fallback:
             total_matches, selected = self._search_engine.search_phonetic_with_count(
                 snapshot, keyword_lower, self.max_results,

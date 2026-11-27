@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { readPrivateJson, savePrivateJson, privateBindHost, httpError } from './storage.mjs';
+import { createWriteStream, renameSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 const PLAY_MODES = new Set(['sequence', 'loop-all', 'loop-one', 'shuffle']);
@@ -19,6 +20,16 @@ async function body(req, limit = 64 * 1024) {
   const chunks = []; let size = 0;
   for await (const chunk of req) { size += chunk.length; if (size > limit) throw Object.assign(new Error('请求内容过大'), { status: 413 }); chunks.push(chunk); }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); } catch { throw Object.assign(new Error('请求内容不是有效 JSON'), { status: 400 }); }
+}
+
+// 保留 worker 的 stderr 诊断到私密目录，便于排查语音点歌；超过 5 MiB 轮转一份。
+function openWorkerLog(dataDir, profileId) {
+  const file = path.join(dataDir, `${profileId}-worker.log`);
+  try { if (statSync(file).size > 5 * 1024 * 1024) renameSync(file, `${file}.1`); } catch {}
+  const stream = createWriteStream(file, { flags: 'a', mode: 0o600 });
+  stream.on('error', () => {});
+  stream.write(`\n===== ${new Date().toISOString()} worker 启动 =====\n`);
+  return stream;
 }
 
 export class XiaoAiMusicModule {
@@ -209,14 +220,15 @@ export class XiaoAiMusicModule {
       cwd: this.moduleDir, stdio: ['ignore', 'pipe', 'pipe'],
       env: { PATH: process.env.PATH, HOME: process.env.HOME, LANG: process.env.LANG || 'C.UTF-8', PYTHONDONTWRITEBYTECODE: '1' },
     });
-    const state = { child, token, startedAt: Date.now(), error: '', stopping: false };
+    const state = { child, token, startedAt: Date.now(), error: '', stopping: false, log: openWorkerLog(this.dataDir, profile.id) };
     this.children.set(profile.id, state);
     this.desiredRunning.add(profile.id);
-    // Drain logs, but never publish voice utterances, paths or child secrets.
-    child.stdout.on('data', () => {});
-    child.stderr.on('data', () => { state.error = '音箱 worker 报告异常；请检查解释器、ffprobe 与私密配置'; });
-    child.once('error', () => { state.error = '无法启动音箱 worker；请检查 Python 可执行文件'; this.desiredRunning.delete(profile.id); if (this.children.get(profile.id) === state) this.children.delete(profile.id); });
+    // 完整保留诊断输出到私密日志，便于排查语音点歌与设备通信。
+    child.stdout.on('data', chunk => state.log.write(chunk));
+    child.stderr.on('data', chunk => { state.error = '音箱 worker 报告异常；请检查解释器、ffprobe 与私密配置'; state.log.write(chunk); });
+    child.once('error', () => { state.error = '无法启动音箱 worker；请检查 Python 可执行文件'; state.log.end(); this.desiredRunning.delete(profile.id); if (this.children.get(profile.id) === state) this.children.delete(profile.id); });
     child.once('exit', () => {
+      state.log.end();
       if (this.children.get(profile.id) === state) this.children.delete(profile.id);
       if (!state.stopping && !this.shuttingDown && this.desiredRunning.has(profile.id)) {
         const timer = setTimeout(() => {

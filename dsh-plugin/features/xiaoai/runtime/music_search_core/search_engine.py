@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 
 from music_search_core.models import IndexedSong
+from music_search_core.numbers import normalize_numbers
 from music_search_core.phonetics import has_chinese, phonetic_key
 
 
@@ -49,6 +50,19 @@ class MusicSearchEngine:
         total = len(matched)
         random.shuffle(matched)
         return total, matched[:limit]
+
+    def search_numbers_with_count(self, songs: list[IndexedSong], keyword_lower: str, limit: int) -> tuple[int, list[str]]:
+        normalized = normalize_numbers(keyword_lower)
+        if normalized == keyword_lower:
+            return 0, []
+        matched = []
+        for song in songs:
+            fields = (song.name_lower, song.title_lower, song.artist_lower, song.search_album)
+            if any(normalized in normalize_numbers(field) for field in fields):
+                matched.append(song.path)
+        total = len(matched)
+        random.shuffle(matched)
+        return total, matched[:max(0, limit)]
 
     def search(self, songs: list[IndexedSong], keyword_lower: str, limit: int) -> list[str]:
         _, selected = self.search_with_count(songs, keyword_lower, limit)
