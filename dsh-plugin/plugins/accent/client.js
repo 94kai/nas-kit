@@ -72,7 +72,7 @@ window.__ModuleLoader__.load({
 .ac-note{font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);min-height:18px}
 body[data-accent-device=off] [data-composer-card]::after{display:none}
 .ac-wm{position:fixed;z-index:1;overflow:hidden;pointer-events:none;user-select:none;-webkit-mask-image:linear-gradient(180deg,transparent,#000 7%,#000 93%,transparent);mask-image:linear-gradient(180deg,transparent,#000 7%,#000 93%,transparent)}
-.ac-wm-band{position:absolute;left:50%;top:50%;display:flex;flex-direction:column;justify-content:space-between;width:160%;height:120%;transform:translate(-50%,-50%) rotate(-20deg)}
+.ac-wm-band{position:absolute;left:50%;top:50%;display:flex;flex-direction:column;justify-content:space-around;width:160%;height:120%;transform:translate(-50%,-50%) rotate(-20deg)}
 .ac-wm-row{display:flex;flex:none;align-items:center;justify-content:space-around;gap:var(--dsh-wm-gap,48px);font-size:var(--dsh-wm-size,72px);font-weight:800;letter-spacing:.16em;line-height:1;text-transform:uppercase;white-space:nowrap;color:var(--dsh-device-tone,var(--dsw-alias-label-primary));opacity:.07;-webkit-mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)}
 .ac-wm-row:nth-child(even){color:transparent;-webkit-text-stroke:1px var(--dsh-device-tone,var(--dsw-alias-label-primary));opacity:.18}
 .ac-wm-row:nth-child(3n+2){margin-left:9%}
@@ -111,10 +111,10 @@ body[data-ds-dark-theme] .ac-wm-row:nth-child(even){opacity:.21}
 
         const raw = getComputedStyle(document.body).getPropertyValue('--dsh-device-mark').trim();
         const name = raw.replace(/^"|"$/g, '').replace(/\\"/g, '"');
-        // 字号跟着列宽走；行数由高度决定，保证宽屏、手机上密度接近。
+        // 字号跟着列宽走；行数固定三行，不随列宽/列高变化。
         const size = Math.round(Math.min(104, Math.max(30, rect.width * 0.1)));
         const gap = Math.round(size * 0.8);
-        const rows = Math.max(4, Math.min(11, Math.round(rect.height / (size * 2))));
+        const rows = 3;
         layer.style.setProperty('--dsh-wm-size', `${size}px`);
         layer.style.setProperty('--dsh-wm-gap', `${gap}px`);
         const signature = `${name}|${rows}|${size}|${Math.round(rect.width)}`;
