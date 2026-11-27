@@ -1,4 +1,13 @@
-# Android「Agent」0.11.9
+# Android「Agent」0.11.10
+
+## 信任用户安装的根证书（0.11.10）
+
+- 现象：DSH 的入口从 `http://10.37.64.126:3080` 换成自带 mkcert 证书的 `https://10.37.64.126:3080` 后，手机 Chrome 正常，App 内打开同一条地址却停在「证书校验失败，已阻止连接；请检查设备时间和证书」。
+- 根因：`targetSdk 35` 的 WebView 只信任系统 CA；用户在系统里安装的证书属于「用户 CA」，Chrome 主动纳入信任链，App 的 WebView 不会。证书、端口和网络本身都正常。
+- 处理：新增 [`network_security_config.xml`](../android/app/src/main/res/xml/network_security_config.xml)，在 `<base-config>` 里同时声明 `system` 与 `user` 两种 trust-anchors，并在 `AndroidManifest.xml` 用 `android:networkSecurityConfig` 引用。`cleartextTrafficPermitted="true"` 必须显式保留：一旦存在该文件，它就会接管并覆盖 `usesCleartextTraffic`，漏掉会让原有 http 入口全部失效。
+- 安全边界：信任范围是「本机用户自己安装的 CA」，全量主机生效（不逐台列域名，换 IP 不必改包）；非用户主动安装的证书不受影响。App 侧其它策略未变，`onReceivedSslError` 仍然拒绝不满足信任链的连接。
+- 装机后：App 里把 Agent 那条地址改成新的 `https://10.37.64.126:3080/?token=…` 登录一次即可，之后不带 token 也能进；token 每次 DSH 重启都会变。
+- 版本 **0.11.10（versionCode 42）**。本机构建通过；真机上「用户 CA 生效」仍待验收。
 
 ## 长按选区：引用浮层与系统菜单（0.11.9）
 

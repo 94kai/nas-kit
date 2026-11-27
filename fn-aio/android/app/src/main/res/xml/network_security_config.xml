@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  个人内网工具：targetSdk 35 的 WebView 默认只信任系统 CA，用户手动安装的根证书
+  （例如给 DSH 的 HTTPS 入口签名的 mkcert CA）会被判为不受信任，onReceivedSslError
+  直接 cancel，表现为「证书校验失败，已阻止连接」。
+
+  这里在系统 CA 之外也信任用户 CA，让手机「设置 › 安全 › 安装证书 › CA 证书」里
+  装过的根证书对 WebView 生效；trust-anchors 只决定信任链，不改变明文策略。
+  用户 CA 全量生效（不限定主机）是刻意的：同一份 mkcert CA 会给家里多台设备的入口
+  签名，逐台列域名会在换 IP 时失效。风险只落在本机用户自己安装的证书上。
+
+  明文继续允许：cleartextTrafficPermitted 一旦省略会覆盖 AndroidManifest 里的
+  usesCleartextTraffic="true"，让 http 入口全部失效。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
