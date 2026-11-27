@@ -71,28 +71,34 @@ window.__ModuleLoader__.load({
 .ac-input:focus{outline:none;border-color:var(--dsw-alias-state-business-primary)}
 .ac-note{font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);min-height:18px}
 body[data-accent-device=off] [data-composer-card]::after{display:none}
-.ac-wm{position:fixed;z-index:1;display:grid;place-items:center;overflow:hidden;pointer-events:none;user-select:none}
-.ac-wm-text::before{content:var(--dsh-device-mark);display:block;font-size:var(--dsh-wm-size,72px);font-weight:800;letter-spacing:.08em;line-height:1;white-space:nowrap;color:var(--dsh-device-tone,var(--dsw-alias-label-primary));opacity:.06;transform:rotate(-20deg)}
-body[data-ds-dark-theme] .ac-wm-text::before{opacity:.08}
+.ac-wm{position:fixed;z-index:1;overflow:hidden;pointer-events:none;user-select:none;-webkit-mask-image:linear-gradient(180deg,transparent,#000 7%,#000 93%,transparent);mask-image:linear-gradient(180deg,transparent,#000 7%,#000 93%,transparent)}
+.ac-wm-band{position:absolute;left:50%;top:50%;display:flex;flex-direction:column;justify-content:space-between;width:160%;height:120%;transform:translate(-50%,-50%) rotate(-20deg)}
+.ac-wm-row{display:flex;flex:none;align-items:center;justify-content:space-around;gap:var(--dsh-wm-gap,48px);font-size:var(--dsh-wm-size,72px);font-weight:800;letter-spacing:.16em;line-height:1;text-transform:uppercase;white-space:nowrap;color:var(--dsh-device-tone,var(--dsw-alias-label-primary));opacity:.12;-webkit-mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent);mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)}
+.ac-wm-row:nth-child(even){color:transparent;-webkit-text-stroke:1.2px var(--dsh-device-tone,var(--dsw-alias-label-primary));opacity:.3}
+.ac-wm-row:nth-child(3n+2){margin-left:9%}
+.ac-wm-row>span{flex:none}
+body[data-ds-dark-theme] .ac-wm-row{opacity:.16}
+body[data-ds-dark-theme] .ac-wm-row:nth-child(even){opacity:.34}
 /* 侧栏品牌：把自带的 deepseek wordmark 换成设备名胶囊（logo 仍在 brand.mark 里） */
 [class*=brandName]>svg{display:none}
 [class*=brandName]::after{content:var(--dsh-device-mark);display:flex;align-items:center;height:18px;padding:0 9px;border-radius:999px;font-size:10.5px;font-weight:600;letter-spacing:.06em;line-height:1;white-space:nowrap;color:var(--dsh-device-tone,var(--dsw-alias-label-primary));background:color-mix(in srgb,var(--dsh-device-tone,var(--dsw-alias-label-primary)) 6%,var(--dsw-specific-sidebar-fill,var(--dsw-alias-bg-base)));border:.5px solid color-mix(in srgb,var(--dsh-device-tone,var(--dsw-alias-label-primary)) 20%,transparent)}`;
 
     /**
-     * 整页水印：只覆盖中间内容列，随列宽实时缩放。
+     * 整页水印：设备名沿斜向重复铺满中间内容列，实心行与描边行交替，随列宽实时缩放。
      * 用 fixed 覆盖层而不是改内容列样式，避免动到 DSH 的定位与层叠。
      */
     function mountWatermark() {
       const layer = document.createElement('div');
       layer.className = 'ac-wm';
       layer.setAttribute('aria-hidden', 'true');
-      const text = document.createElement('span');
-      text.className = 'ac-wm-text';
-      layer.append(text);
+      const band = document.createElement('div');
+      band.className = 'ac-wm-band';
+      layer.append(band);
       document.body.append(layer);
 
       let column = null;
       let observer = null;
+      let painted = '';
 
       const update = () => {
         if (column === null) return;
@@ -102,11 +108,36 @@ body[data-ds-dark-theme] .ac-wm-text::before{opacity:.08}
         layer.style.top = `${rect.top}px`;
         layer.style.width = `${rect.width}px`;
         layer.style.height = `${rect.height}px`;
+
         const raw = getComputedStyle(document.body).getPropertyValue('--dsh-device-mark').trim();
-        const text = raw.replace(/^"|"$/g, '').replace(/\\"/g, '"');
-        const length = Math.max(1, [...text].length);
-        const size = Math.max(48, Math.min(rect.width * 0.9 / (length * 0.62 + 0.35), rect.height * 0.45, 360));
+        const name = raw.replace(/^"|"$/g, '').replace(/\\"/g, '"');
+        // 字号跟着列宽走；行数由高度决定，保证宽屏、手机上密度接近。
+        const size = Math.round(Math.min(104, Math.max(30, rect.width * 0.1)));
+        const gap = Math.round(size * 0.8);
+        const rows = Math.max(4, Math.min(11, Math.round(rect.height / (size * 2))));
         layer.style.setProperty('--dsh-wm-size', `${size}px`);
+        layer.style.setProperty('--dsh-wm-gap', `${gap}px`);
+        const signature = `${name}|${rows}|${size}|${Math.round(rect.width)}`;
+        if (signature === painted) return;
+        painted = signature;
+        band.replaceChildren();
+        if (name === '') return;
+
+        for (let i = 0; i < rows; i += 1) {
+          const row = document.createElement('div');
+          row.className = 'ac-wm-row';
+          const item = document.createElement('span');
+          item.textContent = name;
+          row.append(item);
+          band.append(row);
+        }
+        // 先量一个名字的实际宽度，再按列宽补足横向重复次数；长名字也不会挤成一条。
+        const unit = band.firstElementChild.firstElementChild.offsetWidth || size * 2;
+        const perRow = Math.max(2, Math.ceil((rect.width * 1.6 + gap) / (unit + gap)));
+        for (const row of band.children) {
+          const first = row.firstElementChild;
+          for (let i = 1; i < perRow; i += 1) row.append(first.cloneNode(true));
+        }
       };
 
       const attach = () => {
