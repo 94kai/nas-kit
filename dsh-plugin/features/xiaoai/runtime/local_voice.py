@@ -16,6 +16,11 @@ from player_control import get_volume, set_volume
 logger = logging.getLogger(__name__)
 ZONE = ZoneInfo("Asia/Shanghai")
 RATE = 16000
+# 8 路采集里 0-5 是麦克风，6/7 是播放参考（同一路复制），丢掉参考再收音。
+RECORD_CHANNELS = 8
+MIC_CHANNELS = 6
+RECORD_CONFIG = {"pcm": "noop", "channels": RECORD_CHANNELS, "bits_per_sample": 16,
+                 "sample_rate": RATE, "period_size": 160, "buffer_size": 480}
 DEFAULT_WAKE_WORD = "理想同学"
 DEFAULT_WAKE_TOKENS = "l ǐ x iǎng t óng x ué"
 KWS_DIR = "kws-zh-en-2025-12"
@@ -168,7 +173,7 @@ class LocalVoice:
         return sherpa_onnx.KeywordSpotter(tokens=str(kws_dir / "tokens.txt"),
             encoder=encoder, decoder=decoder, joiner=joiner,
             keywords_file=str(keywords), num_threads=2, provider="cpu",
-            keywords_score=1.5, keywords_threshold=0.1)
+            keywords_score=3.5, keywords_threshold=0.02)
 
     def load_models(self):
         if self.asr is None:
@@ -198,7 +203,8 @@ class LocalVoice:
             await self.restore()
         connection = self.connection
         try:
-            result = await device.call_device("start_recording" if enabled else "stop_recording", timeout_millis=1600)
+            result = await device.call_device("start_recording" if enabled else "stop_recording",
+                                              RECORD_CONFIG if enabled else None, timeout_millis=1600)
             if result.get("code") not in (None, 0):
                 raise RuntimeError(result.get("msg") or "音箱拒绝录音指令")
         except Exception:
@@ -254,7 +260,7 @@ class LocalVoice:
             if message.get("tag") != "record":
                 return
             pcm = bytes(message["bytes"])
-            if not pcm or len(pcm) % 2:
+            if not pcm or len(pcm) % (2 * RECORD_CHANNELS):
                 return
         except (AttributeError, KeyError, TypeError, ValueError):
             return
@@ -263,9 +269,10 @@ class LocalVoice:
         if now < self.resume_at or (self.command and not self.command.done()):
             return
         np = self.np
-        audio = np.frombuffer(pcm, dtype="<i2").astype(np.float32)
-        level = float(np.sqrt(np.mean(audio ** 2)))
-        audio = np.clip(audio * (8 / 32768), -1, 1)
+        frames = np.frombuffer(pcm, dtype="<i2").astype(np.float32).reshape(-1, RECORD_CHANNELS)
+        mono = frames[:, :MIC_CHANNELS].mean(axis=1)
+        level = float(np.sqrt(np.mean(mono ** 2)))
+        audio = np.clip(mono * (8 / 32768), -1, 1)
         if self.capture is not None:
             chunks, started, last_voice = self.capture
             chunks.append(audio)
