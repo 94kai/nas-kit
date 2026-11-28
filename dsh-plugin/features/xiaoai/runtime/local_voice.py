@@ -172,7 +172,7 @@ class LocalVoice:
         keywords.write_text(f"{tokens} @{word}\n", encoding="utf-8")
         return sherpa_onnx.KeywordSpotter(tokens=str(kws_dir / "tokens.txt"),
             encoder=encoder, decoder=decoder, joiner=joiner,
-            keywords_file=str(keywords), num_threads=2, provider="cpu",
+            keywords_file=str(keywords), num_threads=1, provider="cpu",
             keywords_score=3.5, keywords_threshold=0.02)
 
     def load_models(self):
