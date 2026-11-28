@@ -11,6 +11,7 @@ import sys
 import threading
 import types
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 
@@ -37,9 +38,10 @@ config_module.MUSIC_CONFIG = PROFILE["music"]
 sys.modules["config"] = config_module
 
 import open_xiaoai_server  # noqa: E402
-from main import App, on_event_callback  # noqa: E402
+from main import App  # noqa: E402
 from automation_runtime import Automation
-from player_control import set_volume  # noqa: E402
+from player_control import ask_xiaoai, set_volume, speak_text
+from music_search import extract_play_keyword, is_stop_play_command  # noqa: E402
 from stop_commands import RULES as STOP_COMMAND_RULES
 
 logger = logging.getLogger(__name__)
@@ -48,22 +50,83 @@ logger = logging.getLogger(__name__)
 class Runtime:
     loop = None
     listener_task = None
-    listener_enabled = False
     api_server = None
     stopping = False
     automation = None
+    local_voice = None
+    playlist_pipe = None
 
     @classmethod
-    async def set_listener(cls, enabled):
-        cls.listener_enabled = bool(enabled)
-        if cls.listener_enabled:
-            open_xiaoai_server.register_fn("on_event", on_event_callback)
-        else:
-            App.voice_action_seq += 1
-            open_xiaoai_server.unregister_fn("on_event")
-        # 播放、暂停和音量控制也复用这条 WebSocket，因此关闭语音识别时仍保持连接。
-        if not cls.listener_task or cls.listener_task.done():
-            cls.listener_task = open_xiaoai_server.start_server()
+    def report_voice_playlist(cls, paths):
+        if not paths or not cls.playlist_pipe:
+            return
+        with App.searcher._lock:
+            items = {song.path: song for song in App.searcher._songs}
+        songs = [cls.song_payload(items[path]) for path in paths if path in items]
+        try:
+            cls.playlist_pipe.write(json.dumps(songs, ensure_ascii=False) + "\n")
+            cls.playlist_pipe.flush()
+        except OSError:
+            logger.warning("离线语音播放列表未能同步到工具箱")
+
+    @staticmethod
+    def song_payload(song):
+        return {"path": song.path, "name": os.path.basename(song.path), "title": song.title_lower,
+                "artist": song.artist_lower, "album": song.album_lower, "size": song.size}
+
+    @classmethod
+    def on_player_event(cls, event):
+        # 原厂主动播音频时只清除 NAS 待播与切歌计时，不发任何设备命令。
+        song = App.current_song
+        if not song:
+            return
+        try:
+            data = json.loads(event)
+            if data.get("event") != "instruction":
+                return
+            line = json.loads(data["data"]["NewLine"])
+            header = line["header"]
+            if header.get("namespace") == "AudioPlayer" and header.get("name") == "Play" and song.url not in json.dumps(line.get("payload"), ensure_ascii=False):
+                asyncio.create_task(cls.release_queue(song))
+        except (KeyError, TypeError, ValueError, AttributeError):
+            return
+
+    @staticmethod
+    async def release_queue(song):
+        async with App.local_music_lock:
+            if App.current_song is song:
+                await App._clear_queue_unlocked(stop_device=False)
+                logger.info("原厂播放器已开始播放，取消 NAS 自动切歌")
+
+    @classmethod
+    async def play_keyword(cls, keyword, voice=False):
+        if not keyword:
+            raise ValueError("请输入搜索关键词")
+        paths = await asyncio.to_thread(App.searcher.find, keyword, phonetic_fallback=voice)
+        if not paths:
+            logger.info("未找到匹配歌曲: 关键词=%s", keyword)
+            if voice:
+                return
+            raise ValueError("没有找到可播放的歌曲")
+        played = await cls.play_playlist(App.play_mode, paths, trigger="理想同学" if voice else "搜索播放")
+        if voice:
+            cls.report_voice_playlist(played)
+
+    @classmethod
+    async def voice_command(cls, text):
+        if is_stop_play_command(text, App.stop_keywords):
+            if App.current_song:
+                await App.stop_music()
+        elif cls.automation and await cls.automation.voice(text):
+            return
+        elif App._is_refresh_index_command(text):
+            await App.refresh_music_index("理想同学语音刷新")
+        elif App._is_random_play_command(text):
+            paths = await asyncio.to_thread(App.searcher.random_pick)
+            if paths:
+                cls.report_voice_playlist(await cls.play_playlist(App.play_mode, paths, trigger="理想同学随机播放"))
+        elif keyword := extract_play_keyword(text, App.play_keywords):
+            await cls.play_keyword(keyword, voice=True)
 
     @classmethod
     async def stop_connection(cls):
@@ -86,7 +149,7 @@ class Runtime:
             "automation": cls.automation.status() if cls.automation else None,
             "id": PROFILE["id"],
             "name": PROFILE["name"],
-            "listenerEnabled": cls.listener_enabled,
+            "localVoice": cls.local_voice.status() if cls.local_voice else None,
             "builtinStopKeywords": STOP_COMMAND_RULES["commands"],
             "speakerConnected": open_xiaoai_server.is_connected(),
             "librarySize": App.searcher.index_size(),
@@ -112,14 +175,7 @@ class Runtime:
                 key in value for value in (song.name_lower, song.title_lower, song.artist_lower, song.album_lower)
             ):
                 continue
-            result.append({
-                "path": song.path,
-                "name": os.path.basename(song.path),
-                "title": song.title_lower,
-                "artist": song.artist_lower,
-                "album": song.album_lower,
-                "size": song.size,
-            })
+            result.append(cls.song_payload(song))
             if len(result) >= 100:
                 break
         return result
@@ -164,10 +220,11 @@ class Runtime:
         async with App.local_music_lock:
             App.play_queue = songs
             first_song = App.play_queue.pop(0)
-            await App._start_song_unlocked(first_song, trigger="网页播放列表")
+            await App._start_song_unlocked(first_song, trigger="歌单播放")
+        return list(dict.fromkeys(song.path for song in songs))
 
     @classmethod
-    async def play_playlist(cls, mode, source, paths=None):
+    async def play_playlist(cls, mode, source, paths=None, *, trigger="网页播放列表"):
         """Single playlist playback: ordered source plus a playback mode."""
         source_paths = list(dict.fromkeys(str(item) for item in (source or []) if str(item)))[:1000]
         if not source_paths:
@@ -206,7 +263,8 @@ class Runtime:
                 start,
                 len(App.play_queue),
             )
-            await App._start_song_unlocked(first_song, trigger="网页播放列表")
+            await App._start_song_unlocked(first_song, trigger=trigger)
+        return [song.path for song in songs]
 
     @classmethod
     async def set_play_mode(cls, mode):
@@ -257,6 +315,8 @@ class ApiHandler(BaseHTTPRequestHandler):
         try:
             if parsed.path == "/status":
                 return self.send_json(200, Runtime.status())
+            if parsed.path == "/local-voice" and Runtime.local_voice:
+                return self.send_json(200, Runtime.local_voice.status())
             if parsed.path == "/search":
                 keyword = parse_qs(parsed.query).get("q", [""])[0]
                 return self.send_json(200, {"items": Runtime.search(keyword)})
@@ -269,6 +329,10 @@ class ApiHandler(BaseHTTPRequestHandler):
             return
         try:
             body = self.read_json()
+            if self.path == "/local-voice":
+                if not Runtime.local_voice:
+                    return self.send_json(503, {"error": "本地语音模型未配置"})
+                return self.send_json(200, run_async(Runtime.local_voice.update(body), 20))
             if self.path == "/play":
                 run_async(Runtime.play_path(str(body.get("path", "")), body.get("repeat", 1)))
             elif self.path == "/queue/play":
@@ -278,16 +342,14 @@ class ApiHandler(BaseHTTPRequestHandler):
             elif self.path == "/queue/mode":
                 return self.send_json(200, run_async(Runtime.set_play_mode(body.get("mode", ""))))
             elif self.path == "/play-search":
-                run_async(App.play_local_music_by_keyword(str(body.get("keyword", "")).strip()))
+                run_async(Runtime.play_keyword(str(body.get("keyword", "")).strip()))
             elif self.path == "/random":
-                run_async(App.play_random_music(body.get("repeat", 1)))
+                run_async(Runtime.play_paths(App.searcher.random_pick(), body.get("repeat", 1)))
             elif self.path == "/stop":
                 run_async(App.stop_music())
             elif self.path == "/refresh":
                 total, cost_ms = run_async(App.refresh_music_index("网页刷新"), 600)
                 return self.send_json(200, {"success": True, "total": total, "costMs": cost_ms})
-            elif self.path == "/listener":
-                run_async(Runtime.set_listener(bool(body.get("enabled"))))
             elif self.path == "/volume":
                 volume = max(0, min(100, int(body.get("volume", 0))))
                 run_async(set_volume(volume))
@@ -300,7 +362,7 @@ class ApiHandler(BaseHTTPRequestHandler):
                     raise ValueError("播报文字不能超过 500 个字符")
                 if any(ord(char) < 32 and char not in "\n\r\t" for char in text):
                     raise ValueError("播报文字包含不支持的控制字符")
-                run_async(App._speak_text(text), 30)
+                run_async(speak_text(text), 30)
             elif self.path == "/ask":
                 text = str(body.get("text", "")).strip()
                 if not text:
@@ -312,7 +374,7 @@ class ApiHandler(BaseHTTPRequestHandler):
                 silent = body.get("silent", False)
                 if type(silent) is not bool:
                     raise ValueError("静默参数必须是布尔值")
-                run_async(App._ask_xiaoai(text, silent=silent), 30)
+                run_async(ask_xiaoai(text, silent=silent), 30)
             else:
                 return self.send_json(404, {"error": "接口不存在"})
             self.send_json(200, {"success": True})
@@ -334,10 +396,16 @@ async def main():
     App.music_server.start()
     Runtime.api_server = ThreadingHTTPServer(("127.0.0.1", PROFILE["api_port"]), ApiHandler)
     threading.Thread(target=Runtime.api_server.serve_forever, daemon=True).start()
-    await Runtime.set_listener(PROFILE.get("listener_enabled", True))
+    if "XIAOAI_PLAYLIST_FD" in os.environ:
+        Runtime.playlist_pipe = os.fdopen(int(os.environ["XIAOAI_PLAYLIST_FD"]), "w", encoding="utf-8")
+    voice_root = Path(args.config).resolve().parent / "local-voice"
+    if (voice_root / "asr/model.int8.onnx").is_file() and (voice_root / "kws/tokens.txt").is_file() and (voice_root / "deps").is_dir():
+        from local_voice import LocalVoice
+        Runtime.local_voice = LocalVoice(voice_root, PROFILE["id"], Runtime.voice_command)
+    open_xiaoai_server.register_fn("on_event", Runtime.on_player_event)
+    Runtime.listener_task = open_xiaoai_server.start_server()
     await App.refresh_music_index("启动刷新")
-    Runtime.automation = Automation(PROFILE, Runtime.play_paths, open_xiaoai_server.is_connected, App.arm_reply_interrupt, App.prepare_voice_playlist)
-    App.automation_voice_handler = Runtime.automation.voice
+    Runtime.automation = Automation(PROFILE, Runtime.play_paths, open_xiaoai_server.is_connected, Runtime.report_voice_playlist)
     Runtime.automation.timer = asyncio.create_task(Runtime.automation.run())
     if App.refresh_interval_sec > 0:
         App.index_refresh_task = asyncio.create_task(App.run_index_refresh_loop())
@@ -345,12 +413,14 @@ async def main():
     for sig in (signal.SIGTERM, signal.SIGINT):
         Runtime.loop.add_signal_handler(sig, stop_event.set)
     await stop_event.wait()
+    if Runtime.local_voice:
+        await Runtime.local_voice.close()
     if Runtime.automation:
         await Runtime.automation.stop()
     await Runtime.stop_connection()
     if App.index_refresh_task:
         App.index_refresh_task.cancel()
-    tasks = [App.index_refresh_task, App.timer_task, App.voice_music_task, App.whitelist_resume_task]
+    tasks = [App.index_refresh_task, App.timer_task]
     for task in tasks:
         if task:
             task.cancel()
@@ -358,6 +428,8 @@ async def main():
     Runtime.api_server.shutdown()
     Runtime.api_server.server_close()
     App.music_server.stop()
+    if Runtime.playlist_pipe:
+        Runtime.playlist_pipe.close()
 
 
 asyncio.run(main())

@@ -42,7 +42,8 @@
 - [DSH 账号登录与切换](docs/dsh-account-login.md)：远程域名登录报 `account: protocol` 的原因、SSH 隧道登录步骤、错误对照与 SSH 转发回滚。
 - [飞牛 DSH 网关清理记录](docs/features/fnos-gateway.md)：专用源码与构建产物已撤回；飞牛应用待管理员卸载，实际 DSH、工具箱和 Lucky 保留。
 - [五模块迁移记录](docs/utilities-migration.md)：数据核验、安装状态和功能差异。
-- [音乐与小爱迁移记录](docs/music-xiaoai-migration.md)：数据保留、兼容路径、设备默认暂停及验证边界。涉及真实音箱前必读。
+- [音乐与小爱迁移记录](docs/music-xiaoai-migration.md)：数据保留、兼容路径、设备默认暂停及验证边界。迁移归档；日常操作以接下来的交接手册为准。
+- [小爱音箱交接手册](docs/features/xiaoai-runbook.md)：涉及音箱客户端、离线点歌、监听、部署或排查时先读；包括上游项目归属、双入口链路、模型依赖和真机操作边界。
 - [功能文档模板](docs/features/_template.md)：新增功能时复制，记录 API、数据、重要决策、生命周期及验证限制。
 
 每次新增或修改功能，必须同步更新对应功能文档中的重要决策、数据/API、验证结果和限制；新增功能还要补本页索引。手机是主要使用场景，隐私文件不得进入 Git、发布包或客户端。

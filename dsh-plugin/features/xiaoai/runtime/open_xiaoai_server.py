@@ -137,8 +137,12 @@ async def _handle_connection(reader, writer):
                 continue
             if not fin:
                 continue
-            if fragment_opcode == 0x1:
-                await _handle_text(fragments.decode("utf-8"))
+            if writer is _active_writer:
+                if fragment_opcode == 0x1:
+                    await _handle_text(fragments.decode("utf-8"))
+                elif fragment_opcode == 0x2 and (callback := _callbacks.get("on_record")):
+                    if len(fragments) <= 64 * 1024:
+                        callback(fragments)
             fragment_opcode = None
             fragments.clear()
     except (asyncio.IncompleteReadError, ConnectionError, asyncio.CancelledError):
@@ -180,15 +184,24 @@ def start_server():
     return asyncio.create_task(_run_server())
 
 
-async def run_shell(script, timeout_millis=10000):
+def connection():
+    return _active_writer if is_connected() else None
+
+
+async def call_device(command, payload=None, timeout_millis=3000):
     request_id = str(uuid.uuid4())
     future = asyncio.get_running_loop().create_future()
     _pending[request_id] = future
     try:
-        await _send_message("Request", {"id": request_id, "command": "run_shell", "payload": script})
+        await _send_message("Request", {"id": request_id, "command": command, "payload": payload})
         response = await asyncio.wait_for(future, timeout=max(float(timeout_millis) / 1000, 0.1))
     finally:
         _pending.pop(request_id, None)
+    return response
+
+
+async def run_shell(script, timeout_millis=10000):
+    response = await call_device("run_shell", script, timeout_millis)
     if response.get("code") not in (None, 0):
         return json.dumps({"error": response.get("msg") or "run_shell error"}, ensure_ascii=False)
     return json.dumps(response.get("data"), ensure_ascii=False)

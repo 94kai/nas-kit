@@ -2,6 +2,7 @@ import { MusicAutomation } from './automation.mjs';
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { createServer } from 'node:net';
+import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { readPrivateJson, savePrivateJson, privateBindHost, httpError } from './storage.mjs';
 import { createWriteStream, renameSync, statSync } from 'node:fs';
@@ -41,6 +42,7 @@ export class XiaoAiMusicModule {
     this.starting = new Map();
     this.startErrors = new Map();
     this.pendingWrites = new Set();
+    this.voicePlaylistRevisions = new Map();
     this.dataDir = path.join(dataDir, 'xiaoai-music');
     this.configFile = path.join(this.dataDir, 'config.json');
     this.libraryFile = path.join(this.dataDir, 'library.json');
@@ -99,7 +101,6 @@ export class XiaoAiMusicModule {
       stopKeywords: this.keywordList(input.stopKeywords ?? previous.stopKeywords, ['停止播放', '暂停播放', '停止', '暂停', '闭嘴', '别放了']),
       refreshKeywords: this.keywordList(input.refreshKeywords ?? previous.refreshKeywords, ['刷新曲库']),
       randomKeywords: this.keywordList(input.randomKeywords ?? previous.randomKeywords, ['随便听听']),
-      listenerEnabled: input.listenerEnabled ?? previous.listenerEnabled ?? true,
       volume: Math.max(0, Math.min(100, Number(input.volume ?? previous.volume ?? 30)))
     };
   }
@@ -113,13 +114,12 @@ export class XiaoAiMusicModule {
     return {
       id: profile.id, name: profile.name, ws_port: profile.ws_port, api_port: profile.api_port,
       bind_host: privateBindHost(this.env.XIAOAI_BIND_HOST), api_token: token,
-      listener_enabled: profile.listenerEnabled,
       automation_file: this.automation.file,
       automation_state_file: path.join(this.dataDir, `${profile.id}-automation-state.json`),
       music: {
         music_dirs: profile.musicDirs, supported_audio_extensions: ['.mp3', '.flac', '.wav', '.m4a', '.aac', '.ogg'],
         search: { max_results: profile.maxResults, refresh_interval_sec: profile.refreshInterval, index_file: path.join(this.dataDir, `${profile.id}-index.json`) },
-        commands: { play_keywords: profile.playKeywords, stop_keywords: profile.stopKeywords, refresh_keywords: profile.refreshKeywords, random_play_keywords: profile.randomKeywords, interrupt_whitelist_keywords: ['音量', '声音', '大点声', '小点声', '静音'], auto_resume_delay_sec: 1.8 },
+        commands: { play_keywords: profile.playKeywords, stop_keywords: profile.stopKeywords, refresh_keywords: profile.refreshKeywords, random_play_keywords: profile.randomKeywords },
         http: { port: profile.musicPort, base_url: profile.baseUrl, host: privateBindHost(this.env.XIAOAI_BIND_HOST), allowed_dirs: profile.musicDirs }, logging: { level: 'INFO' }
       }
     };
@@ -217,14 +217,26 @@ export class XiaoAiMusicModule {
     if (this.shuttingDown) throw httpError('音箱模块已卸载', 503);
     const python = this.env.XIAOAI_PYTHON || 'python3';
     const child = spawn(python, [path.join(this.moduleDir, 'worker_bridge.py'), '--config', configPath], {
-      cwd: this.moduleDir, stdio: ['ignore', 'pipe', 'pipe'],
-      env: { PATH: process.env.PATH, HOME: process.env.HOME, LANG: process.env.LANG || 'C.UTF-8', PYTHONDONTWRITEBYTECODE: '1' },
+      cwd: this.moduleDir, stdio: ['ignore', 'pipe', 'pipe', 'pipe'],
+      env: { PATH: process.env.PATH, HOME: process.env.HOME, LANG: process.env.LANG || 'C.UTF-8', PYTHONDONTWRITEBYTECODE: '1', XIAOAI_PLAYLIST_FD: '3' },
     });
     const state = { child, token, startedAt: Date.now(), error: '', stopping: false, log: openWorkerLog(this.dataDir, profile.id) };
     this.children.set(profile.id, state);
     this.desiredRunning.add(profile.id);
     // 完整保留诊断输出到私密日志，便于排查语音点歌与设备通信。
     child.stdout.on('data', chunk => state.log.write(chunk));
+    const playlistEvents = createInterface({ input: child.stdio[3], crlfDelay: Infinity });
+    playlistEvents.on('error', () => state.log.write('工具箱播放列表同步管道异常\n'));
+    playlistEvents.on('line', line => {
+      if (this.children.get(profile.id) !== state || state.stopping || line.length > 4 * 1024 * 1024) return;
+      try {
+        const songs = []; this.addSongs(songs, JSON.parse(line), profile);
+        if (!songs.length) return;
+        this.library.playlists[profile.id] = songs;
+        this.voicePlaylistRevisions.set(profile.id, Date.now());
+        this.saveLibrary().catch(() => state.log.write('语音播放列表保存失败\n'));
+      } catch { state.log.write('语音播放列表同步失败\n'); }
+    });
     child.stderr.on('data', chunk => { state.error = '音箱 worker 报告异常；请检查解释器、ffprobe 与私密配置'; state.log.write(chunk); });
     child.once('error', () => { state.error = '无法启动音箱 worker；请检查 Python 可执行文件'; state.log.end(); this.desiredRunning.delete(profile.id); if (this.children.get(profile.id) === state) this.children.delete(profile.id); });
     child.once('exit', () => {
@@ -283,7 +295,7 @@ export class XiaoAiMusicModule {
     return data;
   }
 
-  publicProfile(profile) { const { id, name, musicPort, baseUrl, musicDirs, maxResults, refreshInterval, playKeywords, stopKeywords, refreshKeywords, randomKeywords, listenerEnabled, volume } = profile; const displayUrl = new URL(baseUrl); displayUrl.search = ''; displayUrl.hash = ''; return { id, name, musicPort, baseUrl: displayUrl.href, musicDirs, maxResults, refreshInterval, playKeywords, stopKeywords, refreshKeywords, randomKeywords, listenerEnabled, volume, workerState: this.children.has(id) ? 'running' : 'stopped' }; }
+  publicProfile(profile) { const { id, name, musicPort, baseUrl, musicDirs, maxResults, refreshInterval, playKeywords, stopKeywords, refreshKeywords, randomKeywords, volume } = profile; const displayUrl = new URL(baseUrl); displayUrl.search = ''; displayUrl.hash = ''; return { id, name, musicPort, baseUrl: displayUrl.href, musicDirs, maxResults, refreshInterval, playKeywords, stopKeywords, refreshKeywords, randomKeywords, volume, voicePlaylistRevision: this.voicePlaylistRevisions.get(id) || 0, workerState: this.children.has(id) ? 'running' : 'stopped' }; }
 
   async assistantProfiles() {
     return Promise.all(this.config.profiles.map(async profile => {
@@ -341,6 +353,11 @@ export class XiaoAiMusicModule {
     if (!action && req.method === 'PUT') {
       const updated = this.normalizeProfile({ ...(await body(req)), id: profile.id, ws_port: profile.ws_port, api_port: profile.api_port }, profile);
       const running = this.children.has(profile.id); await this.stop(profile.id); Object.assign(profile, updated); await this.save(); if (running) await this.start(profile); json(res, 200, { profile: this.publicProfile(profile) }); return true;
+    }
+    if (action === 'local-voice' && ['GET', 'POST'].includes(req.method)) {
+      const options = { method: req.method, timeout: 22000 };
+      if (req.method === 'POST') options.body = JSON.stringify(await body(req));
+      json(res, 200, await this.worker(profile, '/local-voice', options)); return true;
     }
     if (action === 'search' && req.method === 'GET') { json(res, 200, await this.worker(profile, `/search?q=${encodeURIComponent(String(url.searchParams.get('q') || '').slice(0, 100))}`)); return true; }
     if (action === 'collection' && req.method === 'GET') {
@@ -418,7 +435,7 @@ export class XiaoAiMusicModule {
       this.announcements(profile).splice(0);
       await this.saveLibrary(); json(res, 200, { announcements: [] }); return true;
     }
-    if (['play', 'play-search', 'random', 'stop', 'refresh', 'listener', 'volume', 'speak'].includes(action) && req.method === 'POST') {
+    if (['play', 'play-search', 'random', 'stop', 'refresh', 'volume', 'speak'].includes(action) && req.method === 'POST') {
       const payload = await body(req);
       if (['play', 'random'].includes(action)) payload.repeat = Math.max(1, Math.min(20, Number(payload.repeat) || 1));
       if (action === 'speak') {
@@ -437,7 +454,6 @@ export class XiaoAiMusicModule {
         await this.saveLibrary();
         result.announcements = announcements;
       }
-      if (action === 'listener') { profile.listenerEnabled = Boolean(payload.enabled); await this.save(); }
       if (action === 'volume') { profile.volume = Math.max(0, Math.min(100, Number(payload.volume))); await this.save(); }
       json(res, 200, result); return true;
     }

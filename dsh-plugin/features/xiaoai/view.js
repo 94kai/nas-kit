@@ -120,14 +120,14 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
     const tab = fixedTab;
     const favoritesReady = collectionReady && collectionState.favoritesReady !== false;
     const collection = collectionReady ? collectionState : { playlist: [], favorites: [] };
-    const profile = profiles.find(p => p.id === selected), connected = !!profile?.speakerConnected, online = !!profile?.online;
+    const profile = profiles.find(p => p.id === selected), voicePlaylistRevision = profile?.voicePlaylistRevision, connected = !!profile?.speakerConnected, online = !!profile?.online;
     const disabled = action.busy || !selected, unavailable = disabled || !online || !connected;
     const refreshing = refreshPending.includes(selected) || !!profile?.refreshing;
     const statusActive = action.busy || !!action.error || !!action.notice;
     const serviceNote = !profile ? '' : !online
       ? (profile.workerState === 'running' ? (profile.processError || '服务启动中或连接异常') : '')
       : !connected ? '服务在线，音箱未连接'
-        : !profile.listenerEnabled ? '语音监听已关闭' : '';
+        : '';
     const P = (suffix = '', id = selectedRef.current) => `${M}/profiles/${encodeURIComponent(id)}${suffix ? '/' + suffix : ''}`;
     const read = async (path, module = 'playback') => api(path, 'GET', undefined, module);
     function invalidateCollection(id = selectedRef.current) {
@@ -179,12 +179,24 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
       loadCollection(selected).catch(e => { if (active.current && e.name !== 'AbortError') action.setError(e.message); });
     }, [selected]);
     React.useEffect(() => {
+      if (selected && voicePlaylistRevision) loadCollection(selected).catch(() => {});
+    }, [selected, voicePlaylistRevision]);
+    React.useEffect(() => {
       if (controlDraft) requestAnimationFrame(() => controlFormRef.current?.scrollIntoView({ block: 'center' }));
     }, [controlDraft?.id, !!controlDraft]);
     const perform = (fn, notice) => action.run(fn, notice);
     async function musicAction(name, payload, notice) {
       const id = selectedRef.current;
       return perform(async () => { await call(P(name, id), payload); await readback(async () => { await loadProfiles();  }, notice || '设备操作请求已发送'); return true; }, notice);
+    }
+    async function updateLocalVoice(payload) {
+      const id = selectedRef.current;
+      return perform(async () => {
+        const result = await call(P('local-voice', id), payload);
+        await readback(loadProfiles, '监听设置已保存');
+        if (result.error) throw new Error(`设置已保存，${result.error}`);
+        return true;
+      }, '本地语音监听设置已更新');
     }
     async function playAndRefresh(name, payload, notice) {
       const id = selectedRef.current;
@@ -305,7 +317,7 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
       const readyLists = lists.filter(item => item.songs.length);
       const enabledCount = rules.filter(item => item.enabled).length;
       const ruleList = lists.find(item => item.id === rule.playlistId);
-      const triggerText = item => [item.time ? `每天 ${item.time}` : '', item.phrase ? `说“${item.phrase}”` : '', `播放 ${item.repeat} 轮`].filter(Boolean).join(' · ');
+      const triggerText = item => [item.time ? `每天 ${item.time}` : '', item.phrase ? `${profile?.localVoice?.wakeWord || '本地唤醒词'} · ${item.phrase}` : '', `播放 ${item.repeat} 轮`].filter(Boolean).join(' · ');
       const ruleForm = ruleOpen && h('section', { ref: ruleFormRef, className: 'pk-panel pk-auto-form', 'aria-label': '规则设置' },
         h('h3', null, rule.id ? '编辑规则' : '新建规则'),
         h('form', { className: 'pk-form', onSubmit: async event => {
@@ -318,7 +330,7 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
           if (ok) { setRuleOpen(false); setRule(blankRule()); }
         } },
           select('歌单', rule.playlistId, value => updateRule('playlistId', value), [['', '请选择歌单'], ...readyLists.map(list => [list.id, `${list.name}（${list.songs.length}首）`])]),
-          select('触发方式', ruleTrigger, setRuleTrigger, [['time', '每天定时'], ['voice', '对小爱说提示词'], ['both', '定时或语音均可']]),
+          select('触发方式', ruleTrigger, setRuleTrigger, [['time', '每天定时'], ['voice', '本地唤醒后说提示词'], ['both', '定时或语音均可']]),
           ruleTrigger !== 'voice' && field('播放时间（北京时间）', rule.time, value => updateRule('time', value), { type: 'time', required: true }),
           ruleTrigger !== 'time' && field('语音提示词', rule.phrase, value => updateRule('phrase', value), { maxLength: 80, required: true, placeholder: '例如：播放英文儿歌' }),
           ruleTrigger === 'both' && h('p', { className: 'pk-muted' }, '两个条件任一条满足就会播放，不需要同时满足。'),
@@ -329,7 +341,7 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
             button('取消', () => { setRuleOpen(false); setRule(blankRule()); }, action.busy))));
       return h('section', { className: 'pk-panel pk-xiaoai-auto' },
         h('h2', null, '定时与语音播放'),
-        h('p', { className: 'pk-muted' }, '为当前音箱设置每天定时播放，或对小爱说出提示词时播放歌单；歌单在“歌单”页维护。'),
+        h('p', { className: 'pk-muted' }, '为当前音箱设置每天定时播放，或在本地唤醒后说提示词播放歌单；歌单在“歌单”页维护。'),
         !automation ? h(React.Fragment, null, h('p', null, '配置尚未读取。'), button('重新读取配置', () => perform(loadAutomation, '配置已读取'), disabled))
           : h(React.Fragment, null,
             h('p', { className: 'pk-muted' }, online ? `服务在线 · 共 ${rules.length} 条规则，${enabledCount} 条启用` : '服务未就绪：规则可以保存，但目前不会执行'),
@@ -417,8 +429,40 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
           button('停止播放', () => { if (confirm('停止当前播放？播放列表会保留。')) musicAction('stop', {}, '已停止播放；播放列表保留'); }, unavailable, 'pk-danger')) : null,
         h('div', { className: 'pk-actions' },
           button(refreshing ? '正在刷新曲库…' : '刷新曲库', refreshLibrary, disabled || !online || refreshing),
-          button(profile?.listenerEnabled ? '关闭语音监听' : '开启语音监听', () => musicAction('listener', { enabled: !profile?.listenerEnabled }, '语音监听设置已更新'), disabled || !online),
           button('音箱配置', () => { if (!profile) return; const draft = { name: profile.name, baseUrl: profile.baseUrl, maxResults: profile.maxResults, refreshInterval: profile.refreshInterval }; for (const key of ['musicDirs', 'playKeywords', 'stopKeywords', 'refreshKeywords', 'randomKeywords']) draft[key] = (profile[key] || []).join('\n'); setConfigDraft(draft); }, disabled)));
+    }
+    function localVoicePanel() {
+      const voice = profile?.localVoice;
+      if (!voice) return null;
+      const scheduled = voice.start && voice.stop;
+      return h('section', { className: 'pk-panel', 'aria-label': '本地语音监听' },
+        h('div', { className: 'pk-list-head' }, h('h2', null, '本地语音监听'),
+          h('span', { className: `pk-badge${voice.recording ? ' is-on' : ''}`, role: 'status' },
+            voice.streaming ? '监听中' : voice.enabled ? (voice.recording ? '等待音频' : '等待音箱') : '已关闭')),
+        h('p', { className: 'pk-muted' }, `开启后音频持续传到 NAS，不保存录音。说「${voice.wakeWord}」，等提示音后再说播放指令；「小爱同学」照常走原厂。`),
+        voice.error && h('p', { className: 'pk-error', role: 'alert' }, voice.error),
+        button(voice.enabled ? '关闭监听' : '开启监听', () => updateLocalVoice({ enabled: !voice.enabled }), disabled || !online || (!connected && !voice.enabled)),
+        h('details', { key: selected, className: 'pk-auto-help' }, h('summary', null, `唤醒词 · ${voice.wakeWord}`),
+          h('form', { key: `${selected}:${voice.wakeWord}`, className: 'pk-form', onSubmit: event => {
+            event.preventDefault();
+            updateLocalVoice({ wakeWord: String(new FormData(event.currentTarget).get('wakeWord') ?? '') });
+          } },
+            h('label', null, '当前音箱的唤醒词', h('input', { name: 'wakeWord', defaultValue: voice.wakeWord, pattern: '[一-鿿]{3,8}', minLength: 3, maxLength: 8, required: true, autoComplete: 'off' })),
+            h('p', { className: 'pk-muted' }, '填 3–8 个汉字，建议 4–6 字。两台音箱可以用不同的词，保存不会打断播放。'),
+            h('button', { type: 'submit', disabled: disabled || !online }, '保存唤醒词'))),
+        h('details', { className: 'pk-auto-help' }, h('summary', null, scheduled ? `每日 ${voice.start} 开启 · ${voice.stop} 关闭` : '设置每日监听时段'),
+          h('form', { key: `${selected}:${voice.start}:${voice.stop}`, className: 'pk-form', onSubmit: event => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            updateLocalVoice({ start: form.get('start'), stop: form.get('stop') });
+          } },
+            h('p', { className: 'pk-muted' }, '北京时间，支持跨午夜。手动开关覆盖到下一次定时切换。'),
+            h('div', { className: 'pk-grid' },
+              h('label', null, '开启时间', h('input', { name: 'start', type: 'time', defaultValue: voice.start || '08:00', required: true })),
+              h('label', null, '关闭时间', h('input', { name: 'stop', type: 'time', defaultValue: voice.stop || '23:00', required: true }))),
+            h('div', { className: 'pk-actions' },
+              h('button', { type: 'submit', disabled: disabled || !online }, '保存时段'),
+              scheduled && button('清除时段并关闭', () => updateLocalVoice({ start: null, stop: null }), disabled || !online)))));
     }
     function playlistPanel() {
       return h('section', { className: 'pk-panel' },
@@ -475,7 +519,7 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
     function playbackView() {
       return h(React.Fragment, null,
         h('nav', { className: 'pk-tabs pk-library-tabs', 'aria-label': '播放内容' }, [['playlist', '播放台'], ['search', '曲库搜索'], ['favorites', '我喜欢'], ['playlists', '歌单'], ['automation', '定时播放']].map(([id, label]) => h('button', { type: 'button', key: id, 'aria-pressed': libraryTab === id, onClick: () => switchLibraryTab(id) }, label))),
-        libraryTab === 'playlist' ? h(React.Fragment, null, playerPanel(), playlistPanel()) : libraryTab === 'search' ? searchPanel() : libraryTab === 'favorites' ? favoritesPanel() : libraryTab === 'playlists' ? playlistsPanel() : automationPanel());
+        libraryTab === 'playlist' ? h(React.Fragment, null, playerPanel(), localVoicePanel(), playlistPanel()) : libraryTab === 'search' ? searchPanel() : libraryTab === 'favorites' ? favoritesPanel() : libraryTab === 'playlists' ? playlistsPanel() : automationPanel());
     }
     async function sendText(value, sendMode, clear = false, sendSilent = silent) {
       const id = selected;

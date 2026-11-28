@@ -17,12 +17,11 @@ def phrase_key(value):
 
 
 class Automation:
-    def __init__(self, profile, play, connected, arm, prepare_voice):
+    def __init__(self, profile, play, connected, on_voice_playlist):
         self.profile = profile
         self.play = play
         self.connected = connected
-        self.arm = arm
-        self.prepare_voice = prepare_voice
+        self.on_voice_playlist = on_voice_playlist
         self.state = {'dates': {}, 'last': None}
         self.error = ''
         self.lock = asyncio.Lock()
@@ -66,10 +65,9 @@ class Automation:
                 await asyncio.to_thread(self.save_state)
                 if not self.connected():
                     raise ValueError('音箱未连接，本次未播放')
+                played = await self.play([song['path'] for song in playlist['songs']], rule['repeat'])
                 if trigger == 'voice':
-                    self.arm('语音歌单:' + playlist['name'])
-                    await self.prepare_voice()
-                await self.play([song['path'] for song in playlist['songs']], rule['repeat'])
+                    self.on_voice_playlist(played)
                 self.state['last']['status'] = 'success'
                 logger.info('自动歌单播放请求已发送: 方式=%s 歌单=%s', trigger, playlist['name'])
             except Exception as exc:
