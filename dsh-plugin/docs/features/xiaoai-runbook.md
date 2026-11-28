@@ -36,7 +36,7 @@
 | `local-voice/deps/` | NAS worker 所用 Python 的独立依赖目录；当前环境为 Python 3.11，`sherpa-onnx==2.0.3`、`numpy<3`。自行迁机时用目标 worker 的 Python 安装到此目录；自定义词另需 `python-deps/` 下的 `pypinyin==0.55.0`，不装到系统 Python。 |
 | `local-voice/kws-zh-en-2025-12/` | 当前使用的 [Sherpa-ONNX 中英唤醒模型](https://github.com/k2-fsa/sherpa-onnx/releases/tag/kws-models) `sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20`（chunk-16，int8 encoder/joiner）的 `tokens.txt`、`en.phone` 与 `*-epoch-13-avg-2-chunk-16-left-64.*`。`local_voice.py` 的 `KWS_DIR`/`KWS_MODEL` 指定；`local-voice/kws/` 保留旧的 `zh-wenetspeech-3.3M-2024-01-01` 可一行回退。默认词写在 `local_voice.py`；自定义词存于所选设备的 NAS 配置，由 `pypinyin` 生成带声调 token，并校验模型词表。 |
 | `local-voice/asr/` | [中文小型 Paraformer](https://huggingface.co/csukuangfj/sherpa-onnx-paraformer-zh-small-2024-03-09/tree/63ddc3cd0f2810b68289a7b3876e62ef5d53d6df) 的 `model.int8.onnx` 和 `tokens.txt`。初次部署已核对模型 SHA‑256：`3ef6c19369b912f7caf3cef8e545c5ccd1a33d9d7ec792a46668dc41c4b229ec`。 |
-| `local-voice/<profile-id>-settings.json` | 每台设备的唤醒词、监听状态和北京时间每日启停。新设备无配置默认关闭。模型没准备好时，不启用本地语音入口。 |
+| `local-voice/<profile-id>-settings.json` | 每台设备的唤醒词、监听状态和北京时间监听时段（星期 + 起止时间，可多条）。新设备无配置默认关闭。模型没准备好时，不启用本地语音入口。 |
 | `<profile-id>-worker.json`、`<profile-id>-worker.log` | 前者由 Host 生成，含回环 API 临时 token，勿手改或回显；后者按设备记录连接、录音控制、唤醒、转写、搜索和播放，可能含真实语音文本和路径。原始音频不落盘。 |
 
 监听开启期间，房间音频持续在可信局域网发往 NAS，NAS 只在唤醒后跑整句识别。不录音的需求应**关监听**，不是关闭网页或静音音箱。停用本地监听不影响原厂语音、网页播放和定时歌单。禁止公网转发设备 WebSocket 或音频端口；回环管理接口继续使用 worker 鉴权。不要自行修改 LAN 风险许可。

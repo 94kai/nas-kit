@@ -6,7 +6,7 @@ import re
 import sys
 import time
 import unicodedata
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time as dtime
 from zoneinfo import ZoneInfo
 
 import open_xiaoai_server as device
@@ -51,25 +51,58 @@ class LocalVoice:
         self.lock = asyncio.Lock()
         self.timer = asyncio.create_task(self.run())
 
-    def period(self):
+    def schedules(self):
+        rules = self.settings.get("schedules")
+        if isinstance(rules, list):
+            return [rule for rule in rules if rule.get("days") and rule.get("start") and rule.get("stop")]
         start, stop = self.settings.get("start"), self.settings.get("stop")
-        if not start or not stop:
-            return None, None
+        if start and stop:
+            return [{"days": [1, 2, 3, 4, 5, 6, 7], "start": start, "stop": stop}]
+        return []
+
+    def edges(self):
+        """所有时段规则在昨天到未来 8 天内的切换点，按时间排序。"""
         now = datetime.now(ZONE)
+        rules = self.schedules()
         edges = []
-        for offset in (-1, 0, 1):
-            day = now + timedelta(days=offset)
-            for clock, enabled in ((start, True), (stop, False)):
-                hour, minute = map(int, clock.split(":"))
-                edges.append((day.replace(hour=hour, minute=minute, second=0, microsecond=0), enabled))
-        return max(edge for edge in edges if edge[0] <= now)[1], min(edge[0] for edge in edges if edge[0] > now)
+        for offset in range(-1, 8):
+            day = (now + timedelta(days=offset)).date()
+            for rule in rules:
+                if day.isoweekday() not in rule["days"]:
+                    continue
+                for clock, enabled in ((rule["start"], True), (rule["stop"], False)):
+                    hour, minute = map(int, clock.split(":"))
+                    edges.append((datetime.combine(day, dtime(hour, minute), ZONE), enabled))
+        edges.sort(key=lambda item: item[0])
+        return edges
+
+    def next_edge(self):
+        now = datetime.now(ZONE)
+        for at, _ in self.edges():
+            if at > now:
+                return at
+        return None
+
+    @staticmethod
+    def _rule_active(rule, now):
+        start_hour, start_minute = map(int, rule["start"].split(":"))
+        stop_hour, stop_minute = map(int, rule["stop"].split(":"))
+        start, stop = dtime(start_hour, start_minute), dtime(stop_hour, stop_minute)
+        weekday, clock = now.isoweekday(), now.time()
+        if start < stop:
+            return weekday in rule["days"] and start <= clock < stop
+        # 跨午夜：今天开始、或昨天开始延续到今天
+        return (weekday in rule["days"] and clock >= start) or ((weekday - 2) % 7 + 1 in rule["days"] and clock < stop)
 
     def desired(self):
-        scheduled, _ = self.period()
         override = self.settings.get("override")
         if override and override["until"] > time.time():
             return override["enabled"]
-        return scheduled if scheduled is not None else bool(self.settings.get("enabled", False))
+        rules = self.schedules()
+        if not rules:
+            return bool(self.settings.get("enabled", False))
+        now = datetime.now(ZONE)
+        return any(self._rule_active(rule, now) for rule in rules)
 
     @property
     def wake_word(self):
@@ -78,7 +111,8 @@ class LocalVoice:
     def status(self):
         return {"wakeWord": self.wake_word, "enabled": self.desired(), "recording": self.recording,
                 "streaming": self.recording and 0 < time.monotonic() - self.last_frame_at < 3,
-                "start": self.settings.get("start"), "stop": self.settings.get("stop"), "error": self.error}
+                "start": self.settings.get("start"), "stop": self.settings.get("stop"),
+                "schedules": self.schedules(), "error": self.error}
 
     def save(self, settings):
         tmp = self.path.with_suffix(".tmp")
@@ -91,7 +125,7 @@ class LocalVoice:
             raise ValueError("监听设置必须是对象")
         async with self.lock:
             settings = dict(self.settings)
-            _, next_edge = self.period()
+            next_edge = self.next_edge()
             if set(changes) == {"wakeWord"}:
                 word = changes["wakeWord"].strip() if isinstance(changes["wakeWord"], str) else ""
                 tokens = self.keyword_tokens(word)
@@ -109,17 +143,43 @@ class LocalVoice:
                     settings["override"] = {"enabled": changes["enabled"], "until": next_edge.timestamp()}
                 else:
                     settings["enabled"] = changes["enabled"]
+            elif set(changes) == {"schedules"}:
+                settings.update(schedules=self.clean_schedules(changes["schedules"]), enabled=False, override=None)
+                settings.pop("start", None)
+                settings.pop("stop", None)
             elif set(changes) == {"start", "stop"}:
                 start, stop = changes["start"], changes["stop"]
                 if start is not None or stop is not None:
                     if not all(isinstance(value, str) and CLOCK.fullmatch(value) for value in (start, stop)) or start == stop:
                         raise ValueError("启停时间必须为不同的 HH:MM")
-                settings.update(start=start, stop=stop, enabled=False, override=None)
+                settings.update(start=start, stop=stop, schedules=[], enabled=False, override=None)
             else:
-                raise ValueError("请设置监听开关、唤醒词或一组启停时间")
+                raise ValueError("请设置监听开关、唤醒词、监听时段或一组启停时间")
             self.save(settings)
             await self.sync_locked()
             return self.status()
+
+    @staticmethod
+    def clean_schedules(rules):
+        if rules is None:
+            return []
+        if not isinstance(rules, list) or len(rules) > 12:
+            raise ValueError("监听时段最多 12 条")
+        clean = []
+        for rule in rules:
+            if not isinstance(rule, dict):
+                raise ValueError("监听时段格式不正确")
+            try:
+                days = sorted({int(day) for day in (rule.get("days") or [])})
+            except (TypeError, ValueError):
+                raise ValueError("星期选择不正确") from None
+            if not days or any(day < 1 or day > 7 for day in days):
+                raise ValueError("每条时段至少选择一个星期")
+            start, stop = rule.get("start"), rule.get("stop")
+            if not all(isinstance(value, str) and CLOCK.fullmatch(value) for value in (start, stop)) or start == stop:
+                raise ValueError("启停时间必须为不同的 HH:MM")
+            clean.append({"days": days, "start": start, "stop": stop})
+        return clean
 
     def keyword_tokens(self, word):
         if not re.fullmatch(r"[\u4e00-\u9fff]{3,8}", word):

@@ -106,7 +106,7 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
     const [listName, setListName] = React.useState(''), [listQuery, setListQuery] = React.useState(''), [listHits, setListHits] = React.useState([]), [rule, setRule] = React.useState(blankRule);
     const [assistant, setAssistant] = React.useState({ controls: [], history: {} }), [mode, setMode] = React.useState('speak'), [text, setText] = React.useState(''), [controlDraft, setControlDraft] = React.useState(null), [silent, setSilent] = React.useState(false);
     const [fnos, setFnos] = React.useState({configured:false,connected:false}), [nasOrigin, setNasOrigin] = React.useState(''), [authorizationUrl, setAuthorizationUrl] = React.useState('');
-    const [serviceOpen, setServiceOpen] = React.useState(false);
+    const [serviceOpen, setServiceOpen] = React.useState(false), [scheduleDraft, setScheduleDraft] = React.useState(null);
     const servicePanelId = React.useId(), configFormId = React.useId();
     const [ruleOpen, setRuleOpen] = React.useState(false), [ruleTrigger, setRuleTrigger] = React.useState('time'), [createListOpen, setCreateListOpen] = React.useState(false);
     const [refreshPending, setRefreshPending] = React.useState([]);
@@ -172,7 +172,7 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
       return () => { active.current = false; clearInterval(timer); ++profileSerial.current; collectionGate.current.invalidate(''); ++assistantSerial.current; ++automationSerial.current; };
     }, []);
     React.useEffect(() => {
-      setHits([]); setSearched(false); setSearchedKeyword(''); invalidateCollection(selected); setConfigDraft(null); setListHits([]); setListId(''); setListQuery(''); setListName(''); setRule(blankRule()); setRuleOpen(false); setCreateListOpen(false); setServiceOpen(false);
+      setHits([]); setSearched(false); setSearchedKeyword(''); invalidateCollection(selected); setConfigDraft(null); setListHits([]); setListId(''); setListQuery(''); setListName(''); setRule(blankRule()); setRuleOpen(false); setCreateListOpen(false); setServiceOpen(false); setScheduleDraft(null);
       if (!selected) return;
       try { localStorage.setItem('pocket-kit-xiaoai-speaker', selected); setPlayMode(localStorage.getItem(`pocket-kit-xiaoai-mode:${selected}`) || 'sequence'); } catch {}
       setVolume(profiles.find(p => p.id === selected)?.volume ?? 30);
@@ -434,7 +434,14 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
     function localVoicePanel() {
       const voice = profile?.localVoice;
       if (!voice) return null;
-      const scheduled = voice.start && voice.stop;
+      const WEEKDAYS = [['一', 1], ['二', 2], ['三', 3], ['四', 4], ['五', 5], ['六', 6], ['日', 7]];
+      const rules = scheduleDraft ?? (voice.schedules || []);
+      const editRules = patch => setScheduleDraft(patch(rules));
+      const patchRule = (index, changes) => editRules(list => list.map((item, i) => i === index ? { ...item, ...changes } : item));
+      const saveSchedules = () => {
+        if (rules.some(item => !(item.days || []).length)) return action.setError('每条时段至少选择一个星期');
+        updateLocalVoice({ schedules: rules }).then(() => setScheduleDraft(null));
+      };
       return h('section', { className: 'pk-panel', 'aria-label': '本地语音监听' },
         h('div', { className: 'pk-list-head' }, h('h2', null, '本地语音监听'),
           h('span', { className: `pk-badge${voice.recording ? ' is-on' : ''}`, role: 'status' },
@@ -450,19 +457,21 @@ function createXiaoaiView(React, { h, useApi, useAction, Status, button, field, 
             h('label', null, '当前音箱的唤醒词', h('input', { name: 'wakeWord', defaultValue: voice.wakeWord, pattern: '[一-鿿]{3,8}', minLength: 3, maxLength: 8, required: true, autoComplete: 'off' })),
             h('p', { className: 'pk-muted' }, '填 3–8 个汉字，建议 4–6 字。两台音箱可以用不同的词，保存不会打断播放。'),
             h('button', { type: 'submit', disabled: disabled || !online }, '保存唤醒词'))),
-        h('details', { className: 'pk-auto-help' }, h('summary', null, scheduled ? `每日 ${voice.start} 开启 · ${voice.stop} 关闭` : '设置每日监听时段'),
-          h('form', { key: `${selected}:${voice.start}:${voice.stop}`, className: 'pk-form', onSubmit: event => {
-            event.preventDefault();
-            const form = new FormData(event.currentTarget);
-            updateLocalVoice({ start: form.get('start'), stop: form.get('stop') });
-          } },
-            h('p', { className: 'pk-muted' }, '北京时间，支持跨午夜。手动开关覆盖到下一次定时切换。'),
-            h('div', { className: 'pk-grid' },
-              h('label', null, '开启时间', h('input', { name: 'start', type: 'time', defaultValue: voice.start || '08:00', required: true })),
-              h('label', null, '关闭时间', h('input', { name: 'stop', type: 'time', defaultValue: voice.stop || '23:00', required: true }))),
+        h('details', { key: `${selected}:schedule`, className: 'pk-auto-help' }, h('summary', null, rules.length ? `监听时段 · ${rules.length} 条` : '设置监听时段'),
+          h('div', { className: 'pk-form' },
+            h('p', { className: 'pk-muted' }, '北京时间，支持跨午夜。同一天可以有多条时段，任意一条生效就开启监听；手动开关覆盖到下一个自动切换点。'),
+            !rules.length && h('p', { className: 'pk-muted' }, '当前没有时段规则，监听只按上面的手动开关。'),
+            rules.map((item, index) => h('div', { key: index, className: 'pk-panel' },
+              h('div', { className: 'pk-actions' }, WEEKDAYS.map(([label, day]) => h('label', { key: day, className: 'pk-check' },
+                h('input', { type: 'checkbox', checked: (item.days || []).includes(day), onChange: event => patchRule(index, { days: event.target.checked ? [...new Set([...(item.days || []), day])].sort((a, b) => a - b) : (item.days || []).filter(value => value !== day) }) }), label))),
+              h('div', { className: 'pk-grid' },
+                h('label', null, '开始', h('input', { type: 'time', value: item.start, onChange: event => patchRule(index, { start: event.target.value }) })),
+                h('label', null, '结束', h('input', { type: 'time', value: item.stop, onChange: event => patchRule(index, { stop: event.target.value }) }))),
+              h('div', { className: 'pk-actions' }, button('删除这条', () => editRules(list => list.filter((_, i) => i !== index)), false, 'pk-danger')))),
             h('div', { className: 'pk-actions' },
-              h('button', { type: 'submit', disabled: disabled || !online }, '保存时段'),
-              scheduled && button('清除时段并关闭', () => updateLocalVoice({ start: null, stop: null }), disabled || !online)))));
+              button('添加时段', () => editRules(list => [...list, { days: [1, 2, 3, 4, 5], start: '18:00', stop: '22:00' }]), disabled || !online),
+              button('保存时段', saveSchedules, disabled || !online, 'pk-primary'),
+              rules.length > 0 && button('清空时段', () => setScheduleDraft([]), disabled || !online, 'pk-danger')))));
     }
     function playlistPanel() {
       return h('section', { className: 'pk-panel' },
