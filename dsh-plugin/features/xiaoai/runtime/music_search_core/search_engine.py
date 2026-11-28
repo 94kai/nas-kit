@@ -43,13 +43,29 @@ class MusicSearchEngine:
         if limit <= 0:
             total = sum(1 for song in songs if self._is_match(song, keyword_lower))
             return total, []
-        matched = []
+        # 按命中字段排序：歌名精确 > 歌名包含 > 文件名 > 歌手 > 专辑。
+        # 不再随机排序，避免“播放单身情歌”先放到同专辑的其它歌。
+        groups: list[list[str]] = [[], [], [], [], []]
         for song in songs:
-            if self._is_match(song, keyword_lower):
-                matched.append(song.path)
-        total = len(matched)
-        random.shuffle(matched)
-        return total, matched[:limit]
+            rank = self._match_rank(song, keyword_lower)
+            if rank is not None:
+                groups[rank].append(song.path)
+        matched = [path for group in groups for path in group]
+        return len(matched), matched[:limit]
+
+    @staticmethod
+    def _match_rank(song: IndexedSong, keyword_lower: str) -> int | None:
+        if keyword_lower == song.title_lower:
+            return 0
+        if keyword_lower in song.title_lower:
+            return 1
+        if keyword_lower in song.name_lower:
+            return 2
+        if keyword_lower in song.artist_lower:
+            return 3
+        if keyword_lower in song.search_album:
+            return 4
+        return None
 
     def search_numbers_with_count(self, songs: list[IndexedSong], keyword_lower: str, limit: int) -> tuple[int, list[str]]:
         normalized = normalize_numbers(keyword_lower)
