@@ -8,7 +8,22 @@ import unicodedata
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+try:
+    from pypinyin import Style, lazy_pinyin
+except ImportError:
+    lazy_pinyin = None
+
 logger = logging.getLogger(__name__)
+
+
+def pinyin_key(value):
+    return ''.join(lazy_pinyin(value, style=Style.NORMAL, errors='ignore')) if lazy_pinyin else ''
+
+
+def same_phrase(text, phrase):
+    if phrase_key(text) == phrase_key(phrase):
+        return True
+    return bool(text) and pinyin_key(text) == pinyin_key(phrase)
 
 
 def phrase_key(value):
@@ -88,7 +103,7 @@ class Automation:
             for rule in config['rules']:
                 if rule['profileId'] != self.profile['id'] or not rule['enabled'] or not rule['phrase']:
                     continue
-                if phrase_key(text) != phrase_key(rule['phrase']):
+                if not same_phrase(text, rule['phrase']):
                     continue
                 playlist = next((item for item in config['playlists'] if item['id'] == rule['playlistId']), None)
                 if not playlist:

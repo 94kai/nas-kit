@@ -14,9 +14,9 @@
 
 ## 当前链路与改动入口
 
-- **原厂语音**：喊「小爱同学」由原厂处理。原厂播放器开始播放其它音频时，NAS 只取消自己的待播计时和运行队列，不停止设备或删除已保存列表。原厂唤醒是否短暂压低音乐由固件决定。
+- **原厂语音**：喊「小爱同学」由原厂处理。原厂开始播报（`SpeechSynthesizer/Speak`）、接管播放或把播放状态置为 `Paused` 时，NAS 清空当前队列并取消切歌计时，不再自动续播；`Idle` 的自然播完仍按顺序切下一首，NAS 刚发起播放的 2 秒内忽略过渡暂停。原厂唤醒是否短暂压低音乐由固件决定。
 - **工具箱「小爱控制」**：操作经 DSH 鉴权 Host 和目标 Python worker，由音箱端 Open‑XiaoAI 执行设备命令。`speak` 调用固件朗读，`ask` 把文字交给原厂 AI（`silent` 只关闭其语音回复）；快捷控制复用同一入口。音量用 `mediaplayer` 的 `player_set_volume`，不会主动清空或停止播放，适合只想调小声。操作都以用户选中的设备为准。
-- **NAS 本地语音**：所选音箱开启监听 → NAS 通过 RPC 发 `start_recording` → 音箱将 16 kHz 单声道 PCM 封在 `record` 二进制消息中发给 NAS → NAS 检测该音箱的唤醒词（默认「理想同学」）→ 音箱播放内置提示音 → NAS 转写下一句，匹配停止、语音歌单、刷新、随机和播放关键词。命中歌曲后直接用局域网播放 URL，不调用原厂语音接口。目前没有通用问答或离线语音调音量。
+- **NAS 本地语音**：所选音箱开启监听 → NAS 通过 RPC 发 `start_recording` → 音箱将 16 kHz 单声道 PCM 封在 `record` 二进制消息中发给 NAS → NAS 检测该音箱的唤醒词（默认「理想同学」）→ 音箱播放内置提示音 → NAS 转写下一句，匹配停止、语音歌单、刷新、随机和播放关键词。命中歌曲后直接用局域网播放 URL，不调用原厂语音接口。目前没有通用问答；离线语音可调音量，失败和刷新结果用短提示音反馈。
 - **播放列表**：离线点歌复用本地索引及播放队列；语音搜索结果、随机结果及语音歌单通过子进程专用管道通知 Host。Host 校验曲库路径并替换**当前音箱**保存的播放列表，更新 `voicePlaylistRevision`，页面轮询后刷新，不修改飞牛收藏或命名歌单。
 
 | 从哪里开始查 | 对应代码 |
@@ -34,7 +34,7 @@
 | 路径 | 内容和恢复来源 |
 | --- | --- |
 | `local-voice/deps/` | NAS worker 所用 Python 的独立依赖目录；当前环境为 Python 3.11，`sherpa-onnx==2.0.3`、`numpy<3`。自行迁机时用目标 worker 的 Python 安装到此目录；自定义词另需 `python-deps/` 下的 `pypinyin==0.55.0`，不装到系统 Python。 |
-| `local-voice/kws/` | [Sherpa-ONNX 中文唤醒模型](https://github.com/k2-fsa/sherpa-onnx/releases/tag/kws-models) `sherpa-onnx-kws-zipformer-wenetspeech-3.3M-2024-01-01` 的 `tokens.txt` 与 `encoder`、`decoder`、`joiner` 对应的 `*-epoch-12-avg-2-chunk-16-left-64.onnx`。默认词写在 `local_voice.py`；自定义词存于所选设备的 NAS 配置，由 `pypinyin` 生成带声调 token，并校验模型词表。 |
+| `local-voice/kws-zh-en-2025-12/` | 当前使用的 [Sherpa-ONNX 中英唤醒模型](https://github.com/k2-fsa/sherpa-onnx/releases/tag/kws-models) `sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20`（chunk-16，int8 encoder/joiner）的 `tokens.txt`、`en.phone` 与 `*-epoch-13-avg-2-chunk-16-left-64.*`。`local_voice.py` 的 `KWS_DIR`/`KWS_MODEL` 指定；`local-voice/kws/` 保留旧的 `zh-wenetspeech-3.3M-2024-01-01` 可一行回退。默认词写在 `local_voice.py`；自定义词存于所选设备的 NAS 配置，由 `pypinyin` 生成带声调 token，并校验模型词表。 |
 | `local-voice/asr/` | [中文小型 Paraformer](https://huggingface.co/csukuangfj/sherpa-onnx-paraformer-zh-small-2024-03-09/tree/63ddc3cd0f2810b68289a7b3876e62ef5d53d6df) 的 `model.int8.onnx` 和 `tokens.txt`。初次部署已核对模型 SHA‑256：`3ef6c19369b912f7caf3cef8e545c5ccd1a33d9d7ec792a46668dc41c4b229ec`。 |
 | `local-voice/<profile-id>-settings.json` | 每台设备的唤醒词、监听状态和北京时间每日启停。新设备无配置默认关闭。模型没准备好时，不启用本地语音入口。 |
 | `<profile-id>-worker.json`、`<profile-id>-worker.log` | 前者由 Host 生成，含回环 API 临时 token，勿手改或回显；后者按设备记录连接、录音控制、唤醒、转写、搜索和播放，可能含真实语音文本和路径。原始音频不落盘。 |
@@ -58,4 +58,4 @@
 | 识别有字但没播 | 核对完整关键词、曲库命中、数字写法/拼音兜底、受控目录及播放下发日志。ASR 转写不是用户说话结束的时间点；`开始播放`只是设备调用返回附近的日志，不能证明扬声器恰在那一刻出声。 |
 | 音箱播了但页面列表没更新 | 查 worker 向 Host 的专用同步管道、Host 是否保存当前设备列表、界面是否取到新 `voicePlaylistRevision`；先刷新状态再判断，不盲目重复点播。 |
 
-本次核验：两台音箱在线且有实时音频帧；「理想同学」「理香同学」「你好小纳」均能用当前模型初始化，原厂词及其同音词被拒绝。未替用户修改实际唤醒词，未用浏览器或音箱实测新词触发。
+本次核验：两台音箱在线且有实时音频帧；「理想同学」「理香同学」「你好小纳」均能用当前模型初始化，原厂词及其同音词被拒绝。未替用户修改实际唤醒词，未用浏览器或音箱实测新词触发。 语音提示音改为设备本机 `aplay` 播放后，已在卧室用麦克风录音确认提示音与音乐同时存在、播放器未暂停；音量绝对值与相对值均生效。客厅测试期间音量被设为 100 后整机离线，断电重启后恢复，原因未确认。之后又加入唤醒时压低音量、放宽唤醒阈值与任意未识别口令的双声反馈；唤醒模型已换成 `sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20`，用户在客厅实测「你好小纳」命中率明显好于旧模型。播放中断即停（暂停/原厂接管/原厂播报）已由用户真机确认。

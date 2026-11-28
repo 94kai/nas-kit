@@ -1,9 +1,13 @@
+import io
 import logging
 import ipaddress
+import math
 import mimetypes
 import os
 import socket
+import struct
 import threading
+import wave
 from http.server import BaseHTTPRequestHandler
 from http.server import ThreadingHTTPServer
 from urllib.parse import quote
@@ -12,6 +16,34 @@ from urllib.parse import urlparse
 
 
 logger = logging.getLogger(__name__)
+
+
+CUE_TONES = {"ok": ((880, 110),), "err": ((660, 90), (660, 90))}
+
+
+def build_cue_wav(name):
+    """短提示音：成功一声高音，失败两声低音，用于不打断播放的语音反馈。"""
+    rate = 48000
+    frames = []
+    for index, (freq, milliseconds) in enumerate(CUE_TONES[name]):
+        if index:
+            frames.append(b"\x00\x00" * int(rate * 0.09))
+        count = int(rate * milliseconds / 1000)
+        fade = max(int(rate * 0.008), 1)
+        for sample in range(count):
+            gain = 0.6
+            if sample < fade:
+                gain *= sample / fade
+            elif sample > count - fade:
+                gain *= (count - sample) / fade
+            frames.append(struct.pack("<h", int(gain * 32767 * math.sin(2 * math.pi * freq * sample / rate))))
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(rate)
+        handle.writeframes(b"".join(frames))
+    return buffer.getvalue()
 
 
 def guess_local_ip() -> str:
@@ -32,6 +64,7 @@ class LocalMusicHttpServer:
         self.port = port
         self.base_url = base_url.rstrip("/")
         self._allowed_files: set[str] = set()
+        self._cue_files: dict[str, bytes] = {}
         self._lock = threading.Lock()
         self._server = ThreadingHTTPServer((self.host, self.port), self._build_handler())
         self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
@@ -49,6 +82,10 @@ class LocalMusicHttpServer:
                     server_ref._serve_file(self, encoded)
                     return
 
+                if path.startswith("/cue/"):
+                    server_ref._serve_cue(self, path.rsplit("/", 1)[-1].split(".")[0])
+                    return
+
                 self.send_response(404)
                 self.end_headers()
 
@@ -58,6 +95,9 @@ class LocalMusicHttpServer:
                 if path.startswith("/file/"):
                     encoded = path.split("/", 3)[2] if len(path.split("/", 3)) >= 3 else ""
                     server_ref._serve_file(self, encoded, head_only=True)
+                    return
+                if path.startswith("/cue/"):
+                    server_ref._serve_cue(self, path.rsplit("/", 1)[-1].split(".")[0], head_only=True)
                     return
                 self.send_response(404)
                 self.end_headers()
@@ -72,6 +112,24 @@ class LocalMusicHttpServer:
 
     def _decode_path(self, encoded: str) -> str:
         return bytes.fromhex(encoded).decode("utf-8")
+
+    def _serve_cue(self, handler: BaseHTTPRequestHandler, name: str, head_only: bool = False):
+        with self._lock:
+            payload = self._cue_files.get(name)
+            if payload is None and name in CUE_TONES:
+                payload = build_cue_wav(name)
+                self._cue_files[name] = payload
+        if payload is None:
+            handler.send_response(404)
+            handler.end_headers()
+            return
+        handler.send_response(200)
+        handler.send_header("Content-Type", "audio/wav")
+        handler.send_header("Content-Length", str(len(payload)))
+        handler.send_header("Cache-Control", "max-age=86400")
+        handler.end_headers()
+        if not head_only:
+            handler.wfile.write(payload)
 
     def _serve_file(self, handler: BaseHTTPRequestHandler, encoded: str, head_only: bool = False):
         try:

@@ -52,6 +52,9 @@ class App:
     play_source: list[SongItem] = []
     timer_task: asyncio.Task | None = None
     index_refresh_task: asyncio.Task | None = None
+    # 判断“播放被外部中断”还是“自然播完”用的时间标记。
+    last_play_at: float = 0.0
+    play_deadline: float = 0.0
     index_refresh_lock = asyncio.Lock()
     timer_buffer_sec = float(MUSIC_CONFIG.get("timer_buffer_sec", 1.5))
 
@@ -222,11 +225,13 @@ class App:
     @classmethod
     def _schedule_timer_unlocked(cls, duration_sec: float):
         wait_sec = max(duration_sec, 0.1) + cls.timer_buffer_sec
+        cls.play_deadline = time.monotonic() + wait_sec
         cls.timer_task = asyncio.create_task(cls._on_song_timer(wait_sec))
 
     @classmethod
     async def _start_song_unlocked(cls, song: SongItem, trigger: str):
         cls.current_song = song
+        cls.last_play_at = time.monotonic()
         result = await play_music_url(song.url)
         logger.info(
             "开始播放: 来源=%s 第%d首 %s 时长=%.1f秒 剩余队列=%d 路径=%s",

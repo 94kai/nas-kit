@@ -41,6 +41,23 @@ async def stop_playback():
     return await run_shell("mphelper pause")
 
 
+async def play_cue(base_url: str, kind: str):
+    """在音箱本机用 aplay 播短提示音；aplay 走 ALSA dmix，与正在播放的音乐混音，不打断播放。"""
+    path = f"/tmp/pocket-kit-cue-{kind}.wav"
+    script = (f"[ -s {path} ] || wget -q -T 3 -t 1 -O {path} {base_url}/cue/{kind}.wav; "
+              f"[ -s {path} ] && aplay -q {path}")
+    return await run_shell(script, 4000)
+
+
+async def get_volume():
+    result = await run_shell("ubus call mediaplayer player_get_context")
+    try:
+        output = json.loads(result["stdout"])
+        return int(json.loads(output["info"])["volume"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 async def set_volume(volume: int):
     value = max(0, min(100, int(volume)))
     payload = json.dumps({"volume": value})

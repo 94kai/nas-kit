@@ -2,12 +2,14 @@
 import argparse
 import hmac
 import asyncio
+import re
 import logging
 import json
 import os
 import random
 import signal
 import sys
+import time
 import threading
 import types
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -40,11 +42,58 @@ sys.modules["config"] = config_module
 import open_xiaoai_server  # noqa: E402
 from main import App  # noqa: E402
 from automation_runtime import Automation
-from player_control import ask_xiaoai, set_volume, speak_text
-from music_search import extract_play_keyword, is_stop_play_command  # noqa: E402
+from player_control import ask_xiaoai, get_volume, play_cue, set_volume, speak_text
+from music_search import extract_play_keyword, is_stop_play_command, normalize_keyword  # noqa: E402
+from music_search_core.numbers import normalize_numbers  # noqa: E402
 from stop_commands import RULES as STOP_COMMAND_RULES
 
+try:
+    from pypinyin import Style, lazy_pinyin
+except ImportError:
+    lazy_pinyin = None
+
 logger = logging.getLogger(__name__)
+
+
+def pinyin_key(text):
+    return "".join(lazy_pinyin(text, style=Style.NORMAL, errors="ignore")).lower() if lazy_pinyin else ""
+
+
+def matches_phrase(text, phrase):
+    """整句匹配，同音字也算命中（ASR 常把「曲库」听成「取库」）。"""
+    key = normalize_keyword(text).replace(" ", "").lower()
+    target = normalize_keyword(phrase).replace(" ", "").lower()
+    if key == target:
+        return True
+    return bool(key) and pinyin_key(key) == pinyin_key(target)
+
+
+ABSOLUTE_VOLUME = re.compile(
+    r"(?:音量|声音|声量|响度)(?:大小|调到|调成|调为|设到|设为|设成|到|成|为)?(\d{1,3})")
+DIRECT_VOLUME = re.compile(r"(?:调到|调成|调为|设到|设为|设成)(\d{1,3})")
+VOLUME_STEP = 10
+
+
+def parse_volume(text):
+    """解析音量口令，返回 ("set", 0-100) / ("delta", ±10)；不是音量指令返回 None。"""
+    value = text.replace(" ", "").replace("百分之", "")
+    if value.startswith("播放"):
+        return None
+    compact = normalize_numbers(value)
+    if any(word in compact for word in ("最大声", "最大音量", "声音最大", "音量最大", "最高音量")):
+        return ("set", 100)
+    if any(word in compact for word in ("最小声", "最小音量", "声音最小", "音量最小", "最低音量")):
+        return ("set", 0)
+    if compact in ("静音", "关闭声音", "关掉声音", "声音关掉"):
+        return ("set", 0)
+    match = ABSOLUTE_VOLUME.search(compact) or DIRECT_VOLUME.search(compact)
+    if match:
+        return ("set", max(0, min(100, int(match.group(1)))))
+    if re.search(r"(?:大|高|响)(?:一点|点|一些|声)", compact) or re.search(r"(?:调大|加大|提高|增加)", compact):
+        return ("delta", VOLUME_STEP)
+    if re.search(r"(?:小|低)(?:一点|点|一些|声)", compact) or re.search(r"(?:调小|减小|降低|减少)", compact):
+        return ("delta", -VOLUME_STEP)
+    return None
 
 
 class Runtime:
@@ -55,6 +104,7 @@ class Runtime:
     automation = None
     local_voice = None
     playlist_pipe = None
+    tasks = set()
 
     @classmethod
     def report_voice_playlist(cls, paths):
@@ -76,27 +126,45 @@ class Runtime:
 
     @classmethod
     def on_player_event(cls, event):
-        # 原厂主动播音频时只清除 NAS 待播与切歌计时，不发任何设备命令。
+        # 播放被暂停、原厂接管或原厂开始说话时，停掉 NAS 队列和切歌计时，不再自动续播。
         song = App.current_song
         if not song:
             return
         try:
             data = json.loads(event)
-            if data.get("event") != "instruction":
+            kind = data.get("event")
+            if kind == "playing":
+                logger.info("设备播放状态: %s", data.get("data"))
+                if data.get("data") == "Paused":
+                    asyncio.create_task(cls.release_queue(song, "播放被暂停"))
+                return
+            if kind != "instruction":
                 return
             line = json.loads(data["data"]["NewLine"])
             header = line["header"]
-            if header.get("namespace") == "AudioPlayer" and header.get("name") == "Play" and song.url not in json.dumps(line.get("payload"), ensure_ascii=False):
-                asyncio.create_task(cls.release_queue(song))
+            namespace = str(header.get("namespace") or "")
+            name = str(header.get("name") or "")
+            if namespace == "AudioPlayer" or "SpeechSynthesizer" in namespace or name == "Speak":
+                logger.info("原厂指令: %s/%s", namespace, name)
+            if namespace == "AudioPlayer" and name == "Play" and song.url not in json.dumps(line.get("payload"), ensure_ascii=False):
+                asyncio.create_task(cls.release_queue(song, "原厂播放器接管"))
+            elif "SpeechSynthesizer" in namespace or name == "Speak":
+                asyncio.create_task(cls.release_queue(song, "原厂开始语音播报"))
         except (KeyError, TypeError, ValueError, AttributeError):
             return
 
     @staticmethod
-    async def release_queue(song):
+    async def release_queue(song, reason="播放被中断"):
         async with App.local_music_lock:
-            if App.current_song is song:
-                await App._clear_queue_unlocked(stop_device=False)
-                logger.info("原厂播放器已开始播放，取消 NAS 自动切歌")
+            if App.current_song is not song:
+                return
+            now = time.monotonic()
+            if now - App.last_play_at < 2.0:
+                return  # 刚由 NAS 发起播放，忽略切换过程中的过渡暂停
+            if reason == "播放被暂停" and now > App.play_deadline - 2.0:
+                return  # 歌曲自然播完，交给切歌计时器
+            await App._clear_queue_unlocked(stop_device=False)
+            logger.info("检测到中断（%s），停止 NAS 队列与切歌计时", reason)
 
     @classmethod
     async def play_keyword(cls, keyword, voice=False):
@@ -106,27 +174,83 @@ class Runtime:
         if not paths:
             logger.info("未找到匹配歌曲: 关键词=%s", keyword)
             if voice:
-                return
+                return False
             raise ValueError("没有找到可播放的歌曲")
         played = await cls.play_playlist(App.play_mode, paths, trigger="理想同学" if voice else "搜索播放")
         if voice:
             cls.report_voice_playlist(played)
+        return True
+
+    @classmethod
+    def cue(cls, kind):
+        task = asyncio.create_task(cls.emit_cue(kind))
+        cls.tasks.add(task)
+        task.add_done_callback(cls.tasks.discard)
+
+    @classmethod
+    async def emit_cue(cls, kind):
+        try:
+            await play_cue(App.music_server.base_url, kind)
+            logger.info("语音提示音: %s", kind)
+        except Exception as exc:
+            logger.info("语音提示音未确认(%s): %s", kind, exc)
+
+    @classmethod
+    async def apply_volume(cls, action):
+        kind, amount = action
+        target = amount
+        if kind == "delta":
+            try:
+                current = await get_volume()
+            except Exception:
+                current = None
+            if current is None:
+                logger.info("语音音量调节失败: 未读取到当前音量")
+                return
+            target = current + amount
+        target = max(0, min(100, int(target)))
+        await set_volume(target)
+        if kind == "delta":
+            logger.info("语音音量调节: 当前%d %+d -> %d", current, amount, target)
+        else:
+            logger.info("语音音量调节: 设置为 %d", target)
 
     @classmethod
     async def voice_command(cls, text):
         if is_stop_play_command(text, App.stop_keywords):
             if App.current_song:
                 await App.stop_music()
-        elif cls.automation and await cls.automation.voice(text):
             return
-        elif App._is_refresh_index_command(text):
-            await App.refresh_music_index("理想同学语音刷新")
-        elif App._is_random_play_command(text):
+        volume = parse_volume(text)
+        if volume:
+            await cls.apply_volume(volume)
+            return
+        if cls.automation and await cls.automation.voice(text):
+            return
+        if any(matches_phrase(text, word) for word in App.refresh_keywords):
+            try:
+                total, _ = await App.refresh_music_index("理想同学语音刷新")
+                logger.info("语音刷新曲库成功: 总数=%d", total)
+                cls.cue("ok")
+            except Exception:
+                logger.exception("语音刷新曲库失败")
+                cls.cue("err")
+            return
+        if any(matches_phrase(text, word) for word in App.random_play_keywords):
             paths = await asyncio.to_thread(App.searcher.random_pick)
-            if paths:
-                cls.report_voice_playlist(await cls.play_playlist(App.play_mode, paths, trigger="理想同学随机播放"))
-        elif keyword := extract_play_keyword(text, App.play_keywords):
-            await cls.play_keyword(keyword, voice=True)
+            if not paths:
+                cls.cue("err")
+                return
+            cls.report_voice_playlist(await cls.play_playlist(App.play_mode, paths, trigger="理想同学随机播放"))
+            return
+        keyword = extract_play_keyword(text, App.play_keywords)
+        if keyword:
+            if not await cls.play_keyword(keyword, voice=True):
+                cls.cue("err")
+            return
+        if text:
+            # 听清了但没对上任何口令，用两声低音告诉用户，避免完全没反馈。
+            cls.cue("err")
 
     @classmethod
     async def stop_connection(cls):

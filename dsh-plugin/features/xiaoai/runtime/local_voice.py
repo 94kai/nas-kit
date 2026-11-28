@@ -11,12 +11,15 @@ from zoneinfo import ZoneInfo
 
 import open_xiaoai_server as device
 from music_search import normalize_keyword
+from player_control import get_volume, set_volume
 
 logger = logging.getLogger(__name__)
 ZONE = ZoneInfo("Asia/Shanghai")
 RATE = 16000
 DEFAULT_WAKE_WORD = "理想同学"
 DEFAULT_WAKE_TOKENS = "l ǐ x iǎng t óng x ué"
+KWS_DIR = "kws-zh-en-2025-12"
+KWS_MODEL = "epoch-13-avg-2-chunk-16-left-64"
 CLOCK = re.compile(r"(?:[01][0-9]|2[0-3]):[0-5][0-9]\Z")
 
 
@@ -38,6 +41,8 @@ class LocalVoice:
         self.capture = None
         self.command = None
         self.resume_at = 0
+        self.cue_until = 0.0
+        self.duck_volume = None
         self.lock = asyncio.Lock()
         self.timer = asyncio.create_task(self.run())
 
@@ -132,21 +137,38 @@ class LocalVoice:
         tokens = tokenize(word)
         if toneless(tokens) == toneless(tokenize("小爱同学")):
             raise ValueError("请避开原厂唤醒词「小爱同学」及其同音词")
-        known = {line.split()[0] for line in (self.root / "kws/tokens.txt").read_text(encoding="utf-8").splitlines() if line.strip()}
+        known = {line.split()[0] for line in (self.kws_dir() / "tokens.txt").read_text(encoding="utf-8").splitlines() if line.strip()}
         if not tokens or any(token not in known for token in tokens):
             raise ValueError("唤醒模型不支持这个词的读音，请换一个")
         return ' '.join(tokens)
 
+    def kws_dir(self):
+        path = self.root / KWS_DIR
+        return path if (path / "tokens.txt").is_file() else self.root / "kws"
+
     def build_spotter(self, word, tokens):
         import sherpa_onnx
 
-        kws_dir = self.root / "kws"
-        model = "epoch-12-avg-2-chunk-16-left-64.onnx"
+        kws_dir = self.kws_dir()
+        if kws_dir.name == KWS_DIR:
+            def pick(name):
+                for suffix in (".int8.onnx", ".onnx"):
+                    path = kws_dir / f"{name}-{KWS_MODEL}{suffix}"
+                    if path.is_file():
+                        return str(path)
+                raise FileNotFoundError(name)
+            encoder, decoder, joiner = pick("encoder"), pick("decoder"), pick("joiner")
+        else:
+            model = "epoch-12-avg-2-chunk-16-left-64.onnx"
+            encoder = str(kws_dir / f"encoder-{model}")
+            decoder = str(kws_dir / f"decoder-{model}")
+            joiner = str(kws_dir / f"joiner-{model}")
         keywords = self.path.with_suffix(".keywords.txt")
         keywords.write_text(f"{tokens} @{word}\n", encoding="utf-8")
         return sherpa_onnx.KeywordSpotter(tokens=str(kws_dir / "tokens.txt"),
-            **{name: str(kws_dir / f"{name}-{model}") for name in ("encoder", "decoder", "joiner")},
-            keywords_file=str(keywords), num_threads=2, provider="cpu")
+            encoder=encoder, decoder=decoder, joiner=joiner,
+            keywords_file=str(keywords), num_threads=2, provider="cpu",
+            keywords_score=1.5, keywords_threshold=0.1)
 
     def load_models(self):
         if self.asr is None:
@@ -173,6 +195,7 @@ class LocalVoice:
             self.capture = self.stream = None
             if self.command and not self.command.done():
                 self.command.cancel()
+            await self.restore()
         connection = self.connection
         try:
             result = await device.call_device("start_recording" if enabled else "stop_recording", timeout_millis=1600)
@@ -246,11 +269,14 @@ class LocalVoice:
         if self.capture is not None:
             chunks, started, last_voice = self.capture
             chunks.append(audio)
-            if level >= 40:
+            if level >= 40 and now >= self.cue_until:
                 last_voice = now
-            if now - started >= 4.5 or (last_voice and now - last_voice >= 0.65):
+            if now - started >= 4.5 or (last_voice and now - last_voice >= 0.65) or (not last_voice and now - started >= 3.0):
                 self.capture = None
-                self.command = asyncio.create_task(self.handle_command(np.concatenate(chunks)))
+                audio_all = np.concatenate(chunks)
+                logger.info("收音结束: 时长=%.2f秒 人声=%.2f秒 峰值=%.3f", now - started,
+                            last_voice - started if last_voice else 0, float(np.max(np.abs(audio_all))))
+                self.command = asyncio.create_task(self.handle_command(audio_all))
             else:
                 self.capture = chunks, started, last_voice
             return
@@ -263,14 +289,45 @@ class LocalVoice:
                 self.command = asyncio.create_task(self.cue())
                 return
 
+    async def duck(self):
+        """放歌时先压低音量再收音，让静音判定能生效。"""
+        if self.duck_volume is not None:
+            return
+        try:
+            volume = await get_volume()
+        except Exception:
+            return
+        if not volume or volume <= 6:
+            return
+        self.duck_volume = volume
+        try:
+            await set_volume(max(6, volume // 4))
+        except Exception:
+            self.duck_volume = None
+
+    async def restore(self):
+        volume, self.duck_volume = self.duck_volume, None
+        if volume is None:
+            return
+        try:
+            await set_volume(volume)
+        except Exception:
+            logger.info("语音收音后恢复音量未确认: %s", volume)
+
     async def cue(self):
         # 原厂自带本地提示音；直接播放文件，不调用原厂唤醒或云端合成。
+        # 提示音本身会被麦克风收进来，1 秒内不把它当作说话，否则会在提示音结束后立刻截断。
         try:
             await device.run_shell("miplayer -f /usr/share/sound-vendor/AiNiRobot/wakeup_zai_01.wav", 2000)
         except Exception:
             logger.info("NAS 唤醒提示音未确认")
-        if self.recording and self.desired():
-            self.capture = [], time.monotonic(), 0
+        if not (self.recording and self.desired()):
+            return
+        # 提示音按原音量播完再压低音乐开始收音，避免「在」也被压小声。
+        self.cue_until = time.monotonic() + 0.8
+        self.capture = [], time.monotonic(), 0
+        logger.info("开始收音")
+        await self.duck()
 
     def transcribe(self, audio):
         stream = self.asr.create_stream()
@@ -281,6 +338,7 @@ class LocalVoice:
     async def handle_command(self, audio):
         try:
             text = normalize_keyword(await asyncio.to_thread(self.transcribe, audio)).rstrip("。！？?!，,").strip()
+            await self.restore()
             if not self.recording or not self.desired():
                 return
             logger.info("NAS 离线识别: %s", text)
@@ -289,4 +347,5 @@ class LocalVoice:
         except Exception:
             logger.exception("NAS 本地点歌失败")
         finally:
+            await self.restore()
             self.resume_at = time.monotonic() + 1
